@@ -130,7 +130,12 @@ int write_asm(struct cell *image, int size, FILE *f)
 				}
 				break;
 			case C_OP_B:
-				ll += fprintf(f,"%-5s %i", c->mnemo, _b(c->v));
+				// fix for blc
+				if ((c->v & 0b1111111100000000) == 0b1110010000000000) {
+					ll += fprintf(f,"%-5s %i", c->mnemo, (uint16_t)_b(c->v)<<8);
+				} else {
+					ll += fprintf(f,"%-5s %i", c->mnemo, _b(c->v));
+				}
 				break;
 			case C_OP_t:
 				ll += fprintf(f,"%-5s r%i, %i", c->mnemo, _A(c->v), _t(c->v));

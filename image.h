@@ -28,6 +28,7 @@
 enum cell_types {
 	C_NONE = 0,
 	C_DATA,
+	C_NORM,
 	C_OP__,
 	C_OP_R,
 	C_OP_RT,

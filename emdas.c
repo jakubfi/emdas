@@ -29,6 +29,8 @@ int isize;
 char *input_file;
 char *output_file;
 
+int no_lab = 0;
+
 // -----------------------------------------------------------------------
 void usage()
 {
@@ -36,8 +38,9 @@ void usage()
 	printf("Where options are one or more of:\n");
 	printf("   -v        : print version and exit\n");
 	printf("   -h        : print help and exit\n");
-	printf("   -nl       : do not include locations in asm output\n");
+	printf("   -na       : do not include adresses in asm output\n");
 	printf("   -nv       : do not include values in asm output\n");
+	printf("   -nl       : do not assign labels\n");
 }
 
 // -----------------------------------------------------------------------
@@ -48,9 +51,12 @@ int parse_args(int argc, char **argv)
 		switch (option) {
 			case 'n':
 				if (strlen(optarg) > 1) return -1;
-				if (*optarg == 'l') no_loc = 1;
-				else if (*optarg == 'v') no_val = 1;
-				else return -1;
+				switch (*optarg) {
+					case 'a': no_loc = 1; break;
+					case 'v': no_val = 1; break;
+					case 'l': no_lab = 1; break;
+					default: return -1;
+				}
 				break;
 			case 'h':
 				usage();
@@ -112,7 +118,7 @@ int main(int argc, char **argv)
 
 	an_code(pimage, isize);
 	an_sizes(pimage, isize);
-	an_labels(pimage, isize);
+	if (!no_lab) an_labels(pimage, isize);
 
 	if (output_file) {
 		f = fopen(output_file, "w");

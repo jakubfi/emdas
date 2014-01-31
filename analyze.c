@@ -40,6 +40,14 @@ char *lab_add(struct cell *image, int imgsize, uint16_t addr, int type)
 	}
 
 	labcell = image + addr;
+
+	// if we're trying to put label on something, that is a norm arg...
+	if (labcell->type == C_NORM) {
+		labcell->type = C_DATA;
+		(labcell-1)->type = C_DATA;
+		(labcell-1)->size = 1;
+	}
+
 	snprintf(buf, MAX_LAB_LEN, "%s_%d_", lab_names[type], lab_cnt[type]);
 	if (!labcell->label) {
 		labcell->label = strdup(buf);
@@ -106,10 +114,10 @@ int an_sizes(struct cell *image, int size)
 
 	while (i < size) {
 		// handle norm arg
-		if ((image[i].flags & F_NORM) && (!_C(image[i].v))) {
+		if (((image[i].flags & F_NORM) || (image[i].flags & F_BNORM)) && (!_C(image[i].v))) {
 			d = 1;
 			if (i+1 < size) {
-				image[i+1].type = C_DATA;
+				image[i+1].type = C_NORM;
 				image[i+1].flags = 0;
 				image[i+1].size = 1;
 				image[i+1].mnemo = NULL;
