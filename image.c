@@ -18,108 +18,140 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <inttypes.h>
 #include <arpa/inet.h>
 
 #include "image.h"
 
+int no_loc, no_val;
+
 // -----------------------------------------------------------------------
 int dump_norm(struct cell *image, FILE *f)
 {
+	assert(image);
+
+	int ll = 0;
 	int i = 0;
-	if (_D(image[i].v)) fprintf(f, "[");
+
+	if (_D(image[i].v)) ll += fprintf(f, "[");
 
 	if (_C(image[i].v)) {
-		fprintf(f, "r%i", _C(image[i].v));
+		ll += fprintf(f, "r%i", _C(image[i].v));
 		if (_B(image[i].v)) {
-			fprintf(f, "+r%i", _B(image[i].v));
+			ll += fprintf(f, "+r%i", _B(image[i].v));
 		}
 	} else {
 		if (_B(image[i].v)) {
-			fprintf(f, "r%i", _B(image[i].v));
-			fprintf(f, "+0x%04x", (uint16_t) image[i+1].v);
+			ll += fprintf(f, "r%i", _B(image[i].v));
+			ll += fprintf(f, "+0x%04x", (uint16_t) image[i+1].v);
 		} else {
 			if (image[i].argname) {
-				fprintf(f, "%s", image[i].argname);
+				ll += fprintf(f, "%s", image[i].argname);
 			} else {
-				fprintf(f, "0x%04x", (uint16_t) image[i+1].v);
+				ll += fprintf(f, "0x%04x", (uint16_t) image[i+1].v);
 			}
 		}
 	}
 
-	if (_D(image[i].v)) fprintf(f, "]");
-	return 0;
+	if (_D(image[i].v)) ll += fprintf(f, "]");
+	return ll;
 }
+
+// -----------------------------------------------------------------------
+int dump_data(struct cell *image, FILE *f)
+{
+	int ll = 0;
+	assert(image);
+
+	ll += fprintf(f, ".word ");
+	for (int d=0 ; d<image->size ; d++) {
+		if ((image+d)->argname) {
+			ll += fprintf(f, "%s", (image+d)->argname);
+		} else {
+			ll += fprintf(f, "0x%04x", (image+d)->v);
+		}
+		if (d < image->size-1) ll += fprintf(f, ", ");
+	}
+	return ll;
+}
+
+#define MAX_LINE 50
 
 // -----------------------------------------------------------------------
 int write_asm(struct cell *image, int size, FILE *f)
 {
 	int i = 0;
+	struct cell *c;
+	int ll;
+	char *spaces = malloc(MAX_LINE+1);
+	memset(spaces, ' ', MAX_LINE);
+	spaces[MAX_LINE] ='\0';
 
 	while (i < size) {
-		fprintf(f, "x%04x: ", i);
-		if (image[i].label) {
-			fprintf(f, "%10s:  ", image[i].label);
+		c = image + i;
+		ll = 0;
+
+		if (!no_loc) {
+			ll += fprintf(f, "0x%04x: ", i);
+		}
+		if (c->label) {
+			ll += fprintf(f, "%15s:  ", c->label);
 		} else {
-			fprintf(f, "             ");
+			ll += fprintf(f, "                  ");
 		}
 
-		switch (image[i].type) {
+		switch (c->type) {
 			case C_DATA:
-				fprintf(f, ".word ");
-				for (int d=0 ; d<image[i].size ; d++) {
-					if (image[i].argname) {
-						fprintf(f, "%s", image[i+d].argname);
-					} else {
-						fprintf(f, "0x%04x", image[i+d].v);
-					}
-					if (d < image[i].size-1) fprintf(f, ", ");
-				}
+				ll += dump_data(c, f);
 				break;
 			case C_OP__:
-				fprintf(f,"%-5s", image[i].mnemo);
+				ll += fprintf(f,"%-5s", c->mnemo);
 				break;
 			case C_OP_R:
-				fprintf(f,"%-5s r%i", image[i].mnemo, _A(image[i].v));
+				ll += fprintf(f,"%-5s r%i", c->mnemo, _A(c->v));
 				break;
 			case C_OP_RT:
-				if (image[i].argname) {
-					fprintf(f,"%-5s r%i, %s", image[i].mnemo, _A(image[i].v), image[i].argname);
+				if (c->argname) {
+					ll += fprintf(f,"%-5s r%i, %s", c->mnemo, _A(c->v), c->argname);
 				} else {
-					fprintf(f,"%-5s r%i, %i", image[i].mnemo, _A(image[i].v), _T(image[i].v));
+					ll += fprintf(f,"%-5s r%i, %i", c->mnemo, _A(c->v), _T(c->v));
 				}
 				break;
 			case C_OP_T:
-				if (image[i].argname) {
-					fprintf(f,"%-5s %s", image[i].mnemo, image[i].argname);
+				if (c->argname) {
+					ll += fprintf(f,"%-5s %s", c->mnemo, c->argname);
 				} else {
-					if (image[i].flags & F_RELATIVE) {
-						fprintf(f,"%-5s %i ; -> %i", image[i].mnemo, _T(image[i].v), i+1+_T(image[i].v));
+					if (c->flags & F_RELATIVE) {
+						ll += fprintf(f,"%-5s %i ; -> %i", c->mnemo, _T(c->v), i+1+_T(c->v));
 					} else {
-						fprintf(f,"%-5s %i", image[i].mnemo, _T(image[i].v));
+						ll += fprintf(f,"%-5s %i", c->mnemo, _T(c->v));
 					}
 				}
 				break;
 			case C_OP_B:
-				fprintf(f,"%-5s %i", image[i].mnemo, _b(image[i].v));
+				ll += fprintf(f,"%-5s %i", c->mnemo, _b(c->v));
 				break;
 			case C_OP_t:
-				fprintf(f,"%-5s r%i, %i", image[i].mnemo, _A(image[i].v), _t(image[i].v));
+				ll += fprintf(f,"%-5s r%i, %i", c->mnemo, _A(c->v), _t(c->v));
 				break;
 			case C_OP_RN:
-				fprintf(f,"%-5s r%i, ", image[i].mnemo, _A(image[i].v));
-				dump_norm(image+i, f);
+				ll += fprintf(f,"%-5s r%i, ", c->mnemo, _A(c->v));
+				ll += dump_norm(c, f);
 				break;
 			case C_OP_N:
-				fprintf(f,"%-5s ", image[i].mnemo);
-				dump_norm(image+i, f);
+				ll += fprintf(f,"%-5s ", c->mnemo);
+				ll += dump_norm(c, f);
 				break;
 			default:
 				assert(!"invalid cell type");
 				break;
 		}   
-		i += image[i].size;
+		if ((!no_val) && (ll < MAX_LINE) && (c->type != C_DATA)) {
+			ll += fprintf(f, "%s ; 0x%04x", spaces+ll, c->v);
+		}
 		fprintf(f, "\n");
+		i += c->size;
 	}
 
 	return 0;
@@ -134,17 +166,19 @@ int reader_raw(FILE *file, struct cell **image)
 	}
 
 	int len = fread(buf, sizeof(uint16_t), MAX_IMAGE, file);
-	if (len <= 0) {
+	if (len < 0) {
+		free(buf);
 		return -1;
 	}
 
 	*image = calloc(sizeof(struct cell), len);
 	if (!image) {
+		free(buf);
 		return -1;
 	}
 
 	for (int i=0 ; i<len ; i++) {
-		((*image)+i)->v = ntohs(buf[i]);
+		(*image)[i].v = ntohs(buf[i]);
 	}
 
 	free(buf);

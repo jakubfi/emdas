@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <getopt.h>
+#include <string.h>
 
 #include "image.h"
 #include "analyze.h"
@@ -35,14 +36,22 @@ void usage()
 	printf("Where options are one or more of:\n");
 	printf("   -v        : print version and exit\n");
 	printf("   -h        : print help and exit\n");
+	printf("   -nl       : do not include locations in asm output\n");
+	printf("   -nv       : do not include values in asm output\n");
 }
 
 // -----------------------------------------------------------------------
 int parse_args(int argc, char **argv)
 {
 	int option;
-	while ((option = getopt(argc, argv,"vh")) != -1) {
+	while ((option = getopt(argc, argv,"n:vh")) != -1) {
 		switch (option) {
+			case 'n':
+				if (strlen(optarg) > 1) return -1;
+				if (*optarg == 'l') no_loc = 1;
+				else if (*optarg == 'v') no_val = 1;
+				else return -1;
+				break;
 			case 'h':
 				usage();
 				exit(0);
@@ -101,13 +110,9 @@ int main(int argc, char **argv)
 
 	isize = res;
 
-	res = an_code(pimage, isize);
-	res = an_sizes(pimage, isize);
-	res = an_labels(pimage, isize);
-	if (res) {
-		printf("Cannot analyze file %s.\n", input_file);
-		goto cleanup;
-	}
+	an_code(pimage, isize);
+	an_sizes(pimage, isize);
+	an_labels(pimage, isize);
 
 	if (output_file) {
 		f = fopen(output_file, "w");

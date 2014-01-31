@@ -24,14 +24,16 @@
 #include "analyze.h"
 #include "image.h"
 
-char *lab_names[] = { "jmp", "dat", "io_no", "io_en", "io_ok", "io_pe", "???" };
-unsigned lab_cnt[LAB_MAX];
-
 // -----------------------------------------------------------------------
 char *lab_add(struct cell *image, int imgsize, uint16_t addr, int type)
 {
+	static char *lab_names[] = { "jmp", "dat", "io_no", "io_en", "io_ok", "io_pe", "???" };
+	static unsigned lab_cnt[LAB_MAX];
+	static char buf[MAX_LAB_LEN+1];
+	
 	struct cell *labcell;
-	char buf[MAX_LAB_LEN+1];
+
+	assert(image && (type < LAB_MAX));
 
 	if (addr >= imgsize) {
 		return NULL;

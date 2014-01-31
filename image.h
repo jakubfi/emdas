@@ -49,6 +49,8 @@ struct cell {
 	char *argname;
 };
 
+extern int no_loc, no_val;
+
 int reader_raw(FILE *file, struct cell **image);
 int write_asm(struct cell *image, int size, FILE *f);
 

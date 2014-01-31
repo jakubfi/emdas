@@ -15,8 +15,8 @@
 //  Foundation, Inc.,
 //  51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
-#ifndef AN_CODE_H
-#define AN_CODE_H
+#ifndef ANALYZE_H
+#define ANALYZE_H
 
 #include <stdlib.h>
 #include <stdio.h>
