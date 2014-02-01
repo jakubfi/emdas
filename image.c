@@ -65,13 +65,10 @@ int dump_data(struct cell *image, FILE *f)
 	assert(image);
 
 	ll += fprintf(f, ".word ");
-	for (int d=0 ; d<image->size ; d++) {
-		if ((image+d)->argname) {
-			ll += fprintf(f, "%s", (image+d)->argname);
-		} else {
-			ll += fprintf(f, "0x%04x", (image+d)->v);
-		}
-		if (d < image->size-1) ll += fprintf(f, ", ");
+	if (image->argname) {
+		ll += fprintf(f, "%s", image->argname);
+	} else {
+		ll += fprintf(f, "0x%04x", image->v);
 	}
 	return ll;
 }
@@ -152,11 +149,12 @@ int write_asm(struct cell *image, int size, FILE *f)
 				assert(!"invalid cell type");
 				break;
 		}   
-		if ((!no_val) && (ll < MAX_LINE) && (c->type != C_DATA)) {
-			ll += fprintf(f, "%s ; 0x%04x", spaces+ll, c->v);
+		if ((!no_val) && (ll < MAX_LINE) && ((c->type != C_DATA) || (c->argname))) {
+			ll += fprintf(f, "%s ; .word 0x%04x", spaces+ll, c->v);
 		}
 		fprintf(f, "\n");
-		i += c->size;
+		i++;
+		if (((c->type == C_OP_N) || (c->type == C_OP_RN)) && !_C(c->v)) i++;
 	}
 
 	return 0;

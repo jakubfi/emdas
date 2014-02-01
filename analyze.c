@@ -41,11 +41,9 @@ char *lab_add(struct cell *image, int imgsize, uint16_t addr, int type)
 
 	labcell = image + addr;
 
-	// if we're trying to put label on something, that is a norm arg...
+	// do not try putting label on norm arg
 	if (labcell->type == C_NORM) {
-		labcell->type = C_DATA;
-		(labcell-1)->type = C_DATA;
-		(labcell-1)->size = 1;
+		return NULL;
 	}
 
 	snprintf(buf, MAX_LAB_LEN, "%s_%d_", lab_names[type], lab_cnt[type]);
@@ -66,7 +64,7 @@ int an_labels(struct cell *image, int size)
 
 		// if instruction is in/ou, handle additional arguments
 		if (image[i].flags & F_IO) {
-			int d = image[i].size;
+			int d = _C(image[i].v) ? 1 : 2;
 			image[i+d+0].argname = lab_add(image, size, image[i+d+0].v, LAB_IO_NO);
 			image[i+d+1].argname = lab_add(image, size, image[i+d+1].v, LAB_IO_EN);
 			image[i+d+2].argname = lab_add(image, size, image[i+d+2].v, LAB_IO_OK);
@@ -101,13 +99,21 @@ int an_labels(struct cell *image, int size)
 			image[i].argname = lab_add(image, size, image[i+1].v >> 1, LAB_DATA);
 		}
 
-		i += image[i].size;
+		i++;
 	}
 	return 0;
 }
 
 // -----------------------------------------------------------------------
-int an_sizes(struct cell *image, int size)
+void set_as_data(struct cell *c)
+{
+	c->type = C_DATA;
+	c->flags = 0;
+	c->mnemo = NULL;
+}
+
+// -----------------------------------------------------------------------
+int an_args(struct cell *image, int size)
 {
 	int i = 0;
 	int d;
@@ -117,15 +123,10 @@ int an_sizes(struct cell *image, int size)
 		if (((image[i].flags & F_NORM) || (image[i].flags & F_BNORM)) && (!_C(image[i].v))) {
 			d = 1;
 			if (i+1 < size) {
+				set_as_data(image+i+1);
 				image[i+1].type = C_NORM;
-				image[i+1].flags = 0;
-				image[i+1].size = 1;
-				image[i+1].mnemo = NULL;
-				image[i].size = 2;
 			} else {
-				image[i].type = C_DATA;
-				image[i].flags = 0;
-				image[i].mnemo = NULL;
+				set_as_data(image+i);
 				break; // false-positive norm arg at EOF
 			}
 		} else {
@@ -134,26 +135,28 @@ int an_sizes(struct cell *image, int size)
 
 		// in/ou additional arguments
 		if ((image[i].flags & F_IO) && (i+4+d < size)) {
-			image[i+1+d].size = 4;
-			image[i+1+d].type = C_DATA;
-			image[i+2+d].type = C_DATA;
-			image[i+3+d].type = C_DATA;
-			image[i+4+d].type = C_DATA;
+			set_as_data(image+i+1+d);
+			set_as_data(image+i+2+d);
+			set_as_data(image+i+3+d);
+			set_as_data(image+i+4+d);
 		}
 
 		// only if argument is constant norm
 		if (!_C(image[i].v) && !_B(image[i].v) && (image[i+1].v < size)) {
 			// arithmetic: dwords
 			if (image[i].flags & F_ADWORD) {
-				image[image[i+1].v].size = 2;
+				set_as_data(image + image[i+1].v + 0);
+				set_as_data(image + image[i+1].v + 1);
 			}
 			// arithmetic: floats
 			if (image[i].flags & F_AFLOAT) {
-				image[image[i+1].v].size = 3;
+				set_as_data(image + image[i+1].v + 0);
+				set_as_data(image + image[i+1].v + 1);
+				set_as_data(image + image[i+1].v + 2);
 			}
 		}
 
-		i += image[i].size;
+		i++;
 	}
 	return 0;
 }
@@ -168,12 +171,11 @@ int an_code(struct cell *image, int size)
 
 		assert(op);
 
-		image[i].size = 1;
 		image[i].type = op->type;
 		image[i].mnemo = op->mnemo;
 		image[i].flags = op->flags;
 
-		i += image[i].size;
+		i++;
 	}
 
 	return 0;

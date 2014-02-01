@@ -45,7 +45,6 @@ struct cell {
 	int type;
 	unsigned flags;
 	char *mnemo;
-	int size;
 	char *label;
 	char *argname;
 };

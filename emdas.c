@@ -117,7 +117,7 @@ int main(int argc, char **argv)
 	isize = res;
 
 	an_code(pimage, isize);
-	an_sizes(pimage, isize);
+	an_args(pimage, isize);
 	if (!no_lab) an_labels(pimage, isize);
 
 	if (output_file) {

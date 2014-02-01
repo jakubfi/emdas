@@ -36,7 +36,7 @@ enum label_types {
 };
 
 int an_code(struct cell *image, int size);
-int an_sizes(struct cell *image, int size);
+int an_args(struct cell *image, int size);
 int an_labels(struct cell *image, int size);
 
 #endif
