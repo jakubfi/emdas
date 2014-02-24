@@ -105,7 +105,7 @@ int main(int argc, char **argv)
 		goto cleanup;
 	}
 
-	res = reader_raw(f, &pimage);
+	res = read_image(f, &pimage);
 	if (res < 0) {
 		printf("Cannot read input file '%s'.\n", input_file);
 		fclose(f);

@@ -22,6 +22,8 @@
 #include <inttypes.h>
 #include <arpa/inet.h>
 
+#include <emelf.h>
+
 #include "image.h"
 
 int no_loc, no_val;
@@ -161,17 +163,29 @@ int write_asm(struct cell *image, int size, FILE *f)
 }
 
 // -----------------------------------------------------------------------
-int reader_raw(FILE *file, struct cell **image)
+int read_image(FILE *file, struct cell **image)
 {
-	uint16_t *buf = malloc(sizeof(uint16_t) * MAX_IMAGE);
-	if (!buf) {
-		return -1;
-	}
+	int len;
+	uint16_t *buf;
+	struct emelf *e;
 
-	int len = fread(buf, sizeof(uint16_t), MAX_IMAGE, file);
-	if (len < 0) {
-		free(buf);
-		return -1;
+	// try to read as emelf first
+	e = emelf_load(file);
+	if (e) {
+		buf = e->image;
+		len = e->image_pos;
+	} else {
+		// read as raw if emelf fails
+		buf = malloc(sizeof(uint16_t) * MAX_IMAGE);
+		if (!buf) {
+			return -1;
+		}
+		rewind(file);
+		len = fread(buf, sizeof(uint16_t), MAX_IMAGE, file);
+		if (len < 0) {
+			free(buf);
+			return -1;
+		}
 	}
 
 	*image = calloc(sizeof(struct cell), len);
@@ -184,7 +198,8 @@ int reader_raw(FILE *file, struct cell **image)
 		(*image)[i].v = ntohs(buf[i]);
 	}
 
-	free(buf);
+	if (e) emelf_destroy(e);
+	else free(buf);
 	return len;
 }
 
