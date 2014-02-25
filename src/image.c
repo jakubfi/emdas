@@ -168,6 +168,7 @@ int read_image(FILE *file, struct cell **image)
 	int len;
 	uint16_t *buf;
 	struct emelf *e;
+	int i;
 
 	// try to read as emelf first
 	e = emelf_load(file);
@@ -186,6 +187,9 @@ int read_image(FILE *file, struct cell **image)
 			free(buf);
 			return -1;
 		}
+		for (i=0 ; i<len ; i++) {
+			buf[i] = ntohs(buf[i]);
+		}
 	}
 
 	*image = calloc(sizeof(struct cell), len);
@@ -194,12 +198,15 @@ int read_image(FILE *file, struct cell **image)
 		return -1;
 	}
 
-	for (int i=0 ; i<len ; i++) {
-		(*image)[i].v = ntohs(buf[i]);
+	for (i=0 ; i<len ; i++) {
+		(*image)[i].v = buf[i];
 	}
 
-	if (e) emelf_destroy(e);
-	else free(buf);
+	if (e) {
+		emelf_destroy(e);
+	} else {
+		free(buf);
+	}
 	return len;
 }
 
