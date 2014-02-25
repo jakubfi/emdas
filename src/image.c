@@ -174,7 +174,7 @@ int read_image(FILE *file, struct cell **image)
 	e = emelf_load(file);
 	if (e) {
 		buf = e->image;
-		len = e->image_pos;
+		len = e->image_size;
 	} else {
 		// read as raw if emelf fails
 		buf = malloc(sizeof(uint16_t) * MAX_IMAGE);
