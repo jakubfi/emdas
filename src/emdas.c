@@ -34,20 +34,21 @@ int no_lab = 0;
 // -----------------------------------------------------------------------
 void usage()
 {
-	printf("Usage: emdas [options] input [output]\n");
+	printf("Usage: emdas [options] input\n");
 	printf("Where options are one or more of:\n");
-	printf("   -v        : print version and exit\n");
-	printf("   -h        : print help and exit\n");
-	printf("   -na       : do not include adresses in asm output\n");
-	printf("   -nv       : do not include values in asm output\n");
-	printf("   -nl       : do not assign labels\n");
+	printf("   -o <output> : specify output file (stdout otherwise)\n");
+	printf("   -na         : do not include adresses in asm output\n");
+	printf("   -nv         : do not include values in asm output\n");
+	printf("   -nl         : do not assign labels\n");
+	printf("   -v          : print version and exit\n");
+	printf("   -h          : print help and exit\n");
 }
 
 // -----------------------------------------------------------------------
 int parse_args(int argc, char **argv)
 {
 	int option;
-	while ((option = getopt(argc, argv,"n:vh")) != -1) {
+	while ((option = getopt(argc, argv,"o:n:vh")) != -1) {
 		switch (option) {
 			case 'n':
 				if (strlen(optarg) > 1) return -1;
@@ -66,6 +67,9 @@ int parse_args(int argc, char **argv)
 				printf("EMDAS v%s - MERA 400 dissassembler\n", EMDAS_VERSION);
 				exit(0);
 				break;
+			case 'o':
+				output_file = strdup(optarg);
+				break;
 			default:
 				return -1;
 		}
@@ -73,10 +77,6 @@ int parse_args(int argc, char **argv)
 
 	if (optind == argc-1) {
 		input_file = argv[optind];
-		output_file = NULL;
-	} else if (optind == argc-2) {
-		input_file = argv[optind];
-		output_file = argv[optind+1];
 	} else {
 		printf("Wrong usage.\n");
 		return -1;
@@ -147,6 +147,7 @@ cleanup:
 		free(pimage[i].label);
 	}
 	free(pimage);
+	free(output_file);
 	return ret;
 }
 
