@@ -159,6 +159,7 @@ int write_asm(struct cell *image, int size, FILE *f)
 		if (((c->type == C_OP_N) || (c->type == C_OP_RN)) && !_C(c->v)) i++;
 	}
 
+	free(spaces);
 	return 0;
 }
 
