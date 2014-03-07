@@ -194,7 +194,7 @@ int read_image(FILE *file, struct cell **image)
 	}
 
 	*image = calloc(sizeof(struct cell), len);
-	if (!image) {
+	if (!*image) {
 		free(buf);
 		return -1;
 	}
