@@ -154,6 +154,9 @@ int write_asm(struct cell *image, int start_addr, int size, FILE *f)
 		}   
 		if ((!skip_values) && (ll < MAX_LINE) && ((c->type != C_DATA) || (c->argname))) {
 			ll += fprintf(f, "%s ; .word 0x%04x", spaces+ll, c->v);
+			if (((c->type == C_OP_N) || (c->type == C_OP_RN)) && !_C(c->v)) {
+				ll += fprintf(f, ", 0x%04x", (c+1)->v);
+			}
 		}
 		fprintf(f, "\n");
 		i++;
