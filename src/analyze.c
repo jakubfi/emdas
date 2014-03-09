@@ -35,7 +35,7 @@ char *lab_add(struct cell *image, int imgsize, uint16_t addr, int type)
 
 	assert(image && (type < LAB_MAX));
 
-	if (addr >= imgsize) {
+	if ((addr >= imgsize) || (image[addr].type == C_NONE)) {
 		return NULL;
 	}
 
@@ -56,9 +56,9 @@ char *lab_add(struct cell *image, int imgsize, uint16_t addr, int type)
 }
 
 // -----------------------------------------------------------------------
-int an_labels(struct cell *image, int size)
+int an_labels(struct cell *image, int start_addr, int size)
 {
-	int i = 0;
+	int i = start_addr;
 
 	while (i < size) {
 
@@ -113,9 +113,9 @@ void set_as_data(struct cell *c)
 }
 
 // -----------------------------------------------------------------------
-int an_args(struct cell *image, int size)
+int an_args(struct cell *image, int start_addr, int size)
 {
-	int i = 0;
+	int i = start_addr;
 	int d;
 
 	while (i < size) {
@@ -162,9 +162,9 @@ int an_args(struct cell *image, int size)
 }
 
 // -----------------------------------------------------------------------
-int an_code(struct cell *image, int size)
+int an_code(struct cell *image, int start_addr, int size)
 {
-	int i = 0;
+	int i = start_addr;
 
 	while (i < size) {
 		struct opdef *op = get_op(image[i].v);

@@ -29,7 +29,8 @@ int isize;
 char *input_file;
 char *output_file;
 
-int no_lab = 0;
+int skip_labels;
+int base_addr;
 
 // -----------------------------------------------------------------------
 void usage()
@@ -40,6 +41,7 @@ void usage()
 	printf("   -na         : do not include adresses in asm output\n");
 	printf("   -nv         : do not include values in asm output\n");
 	printf("   -nl         : do not assign labels\n");
+	printf("   -a <addr>   : set base address\n");
 	printf("   -v          : print version and exit\n");
 	printf("   -h          : print help and exit\n");
 }
@@ -48,14 +50,14 @@ void usage()
 int parse_args(int argc, char **argv)
 {
 	int option;
-	while ((option = getopt(argc, argv,"o:n:vh")) != -1) {
+	while ((option = getopt(argc, argv,"o:n:a:vh")) != -1) {
 		switch (option) {
 			case 'n':
 				if (strlen(optarg) > 1) return -1;
 				switch (*optarg) {
-					case 'a': no_loc = 1; break;
-					case 'v': no_val = 1; break;
-					case 'l': no_lab = 1; break;
+					case 'a': skip_addresses = 1; break;
+					case 'v': skip_values = 1; break;
+					case 'l': skip_labels = 1; break;
 					default: return -1;
 				}
 				break;
@@ -69,6 +71,9 @@ int parse_args(int argc, char **argv)
 				break;
 			case 'o':
 				output_file = strdup(optarg);
+				break;
+			case 'a':
+				sscanf(optarg, "%i", &base_addr);
 				break;
 			default:
 				return -1;
@@ -105,7 +110,7 @@ int main(int argc, char **argv)
 		goto cleanup;
 	}
 
-	res = read_image(f, &pimage);
+	res = read_image(f, &pimage, base_addr);
 	if (res < 0) {
 		printf("Cannot read input file '%s'.\n", input_file);
 		fclose(f);
@@ -116,9 +121,9 @@ int main(int argc, char **argv)
 
 	isize = res;
 
-	an_code(pimage, isize);
-	an_args(pimage, isize);
-	if (!no_lab) an_labels(pimage, isize);
+	an_code(pimage, base_addr, isize);
+	an_args(pimage, base_addr, isize);
+	if (!skip_labels) an_labels(pimage, base_addr, isize);
 
 	if (output_file) {
 		f = fopen(output_file, "w");
@@ -131,7 +136,7 @@ int main(int argc, char **argv)
 		goto cleanup;
 	}
 
-	res = write_asm(pimage, isize, f);
+	res = write_asm(pimage, base_addr, isize, f);
 	if (res) {
 		printf("Cannot write disassembled source: '%s'.\n", output_file);
 		fclose(f);

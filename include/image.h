@@ -49,10 +49,11 @@ struct cell {
 	char *argname;
 };
 
-extern int no_loc, no_val;
+extern int skip_addresses;
+extern int skip_values;
 
-int read_image(FILE *file, struct cell **image);
-int write_asm(struct cell *image, int size, FILE *f);
+int read_image(FILE *file, struct cell **image, int start_addr);
+int write_asm(struct cell *image, int start_addr, int size, FILE *f);
 
 #endif
 

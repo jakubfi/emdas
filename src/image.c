@@ -26,7 +26,8 @@
 
 #include "image.h"
 
-int no_loc, no_val;
+int skip_addresses;
+int skip_values;
 
 // -----------------------------------------------------------------------
 int dump_norm(struct cell *image, FILE *f)
@@ -78,9 +79,9 @@ int dump_data(struct cell *image, FILE *f)
 #define MAX_LINE 50
 
 // -----------------------------------------------------------------------
-int write_asm(struct cell *image, int size, FILE *f)
+int write_asm(struct cell *image, int start_addr, int size, FILE *f)
 {
-	int i = 0;
+	int i = start_addr;
 	struct cell *c;
 	int ll;
 	char *spaces = malloc(MAX_LINE+1);
@@ -91,7 +92,7 @@ int write_asm(struct cell *image, int size, FILE *f)
 		c = image + i;
 		ll = 0;
 
-		if (!no_loc) {
+		if (!skip_addresses) {
 			ll += fprintf(f, "0x%04x: ", i);
 		}
 		if (c->label) {
@@ -151,7 +152,7 @@ int write_asm(struct cell *image, int size, FILE *f)
 				assert(!"invalid cell type");
 				break;
 		}   
-		if ((!no_val) && (ll < MAX_LINE) && ((c->type != C_DATA) || (c->argname))) {
+		if ((!skip_values) && (ll < MAX_LINE) && ((c->type != C_DATA) || (c->argname))) {
 			ll += fprintf(f, "%s ; .word 0x%04x", spaces+ll, c->v);
 		}
 		fprintf(f, "\n");
@@ -164,7 +165,7 @@ int write_asm(struct cell *image, int size, FILE *f)
 }
 
 // -----------------------------------------------------------------------
-int read_image(FILE *file, struct cell **image)
+int read_image(FILE *file, struct cell **image, int start_addr)
 {
 	int len;
 	uint16_t *buf;
@@ -193,14 +194,14 @@ int read_image(FILE *file, struct cell **image)
 		}
 	}
 
-	*image = calloc(sizeof(struct cell), len);
+	*image = calloc(sizeof(struct cell), start_addr + len);
 	if (!*image) {
 		free(buf);
 		return -1;
 	}
 
 	for (i=0 ; i<len ; i++) {
-		(*image)[i].v = buf[i];
+		(*image)[start_addr + i].v = buf[i];
 	}
 
 	if (e) {
@@ -208,7 +209,7 @@ int read_image(FILE *file, struct cell **image)
 	} else {
 		free(buf);
 	}
-	return len;
+	return start_addr + len;
 }
 
 // vim: tabstop=4 autoindent

@@ -35,9 +35,9 @@ enum label_types {
 	LAB_MAX,
 };
 
-int an_code(struct cell *image, int size);
-int an_args(struct cell *image, int size);
-int an_labels(struct cell *image, int size);
+int an_code(struct cell *image, int start_addr, int size);
+int an_args(struct cell *image, int start_addr, int size);
+int an_labels(struct cell *image, int start_addr, int size);
 
 #endif
 
