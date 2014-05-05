@@ -105,11 +105,16 @@ int an_labels(struct cell *image, int start_addr, int size)
 }
 
 // -----------------------------------------------------------------------
-void set_as_data(struct cell *c)
+void set_as_data(struct cell *image, int addr, int size)
 {
-	c->type = C_DATA;
-	c->flags = 0;
-	c->mnemo = NULL;
+	image[addr].type = C_DATA;
+	image[addr].flags = 0;
+	image[addr].mnemo = NULL;
+	if ((addr+1 < size) && (image[addr+1].type == C_NORM)) {
+		image[addr+1].type = C_DATA;
+		image[addr+1].flags = 0;
+		image[addr+1].mnemo = NULL;
+	}
 }
 
 // -----------------------------------------------------------------------
@@ -123,10 +128,10 @@ int an_args(struct cell *image, int start_addr, int size)
 		if (((image[i].flags & F_NORM) || (image[i].flags & F_BNORM)) && (!_C(image[i].v))) {
 			d = 1;
 			if (i+1 < size) {
-				set_as_data(image+i+1);
+				set_as_data(image, i+1, size);
 				image[i+1].type = C_NORM;
 			} else {
-				set_as_data(image+i);
+				set_as_data(image, i, size);
 				break; // false-positive norm arg at EOF
 			}
 		} else {
@@ -135,24 +140,24 @@ int an_args(struct cell *image, int start_addr, int size)
 
 		// in/ou additional arguments
 		if ((image[i].flags & F_IO) && (i+4+d < size)) {
-			set_as_data(image+i+1+d);
-			set_as_data(image+i+2+d);
-			set_as_data(image+i+3+d);
-			set_as_data(image+i+4+d);
+			set_as_data(image, i+1+d, size);
+			set_as_data(image, i+2+d, size);
+			set_as_data(image, i+3+d, size);
+			set_as_data(image, i+4+d, size);
 		}
 
 		// only if argument is constant norm
 		if (!_C(image[i].v) && !_B(image[i].v) && (image[i+1].v < size)) {
 			// arithmetic: dwords
 			if (image[i].flags & F_ADWORD) {
-				set_as_data(image + image[i+1].v + 0);
-				set_as_data(image + image[i+1].v + 1);
+				set_as_data(image, image[i+1].v + 0, size);
+				set_as_data(image, image[i+1].v + 1, size);
 			}
 			// arithmetic: floats
 			if (image[i].flags & F_AFLOAT) {
-				set_as_data(image + image[i+1].v + 0);
-				set_as_data(image + image[i+1].v + 1);
-				set_as_data(image + image[i+1].v + 2);
+				set_as_data(image, image[i+1].v + 0, size);
+				set_as_data(image, image[i+1].v + 1, size);
+				set_as_data(image, image[i+1].v + 2, size);
 			}
 		}
 
