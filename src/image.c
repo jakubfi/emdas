@@ -123,7 +123,7 @@ int write_asm(struct cell *image, int start_addr, int size, FILE *f)
 					ll += fprintf(f,"%-5s %s", c->mnemo, c->argname);
 				} else {
 					if (c->flags & F_RELATIVE) {
-						ll += fprintf(f,"%-5s %i ; -> %i", c->mnemo, _T(c->v), i+1+_T(c->v));
+						ll += fprintf(f,"%-5s %i ; -> 0x%04x", c->mnemo, _T(c->v), i+1+_T(c->v));
 					} else {
 						ll += fprintf(f,"%-5s %i", c->mnemo, _T(c->v));
 					}
