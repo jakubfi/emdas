@@ -85,7 +85,6 @@ enum emdas_syn_ins {
 	%n - normal argument (using label name, if available)
 	%N - normal argument (numeric)
 	%d - cell data
-	%A - cell address
 */
 
 // Instruction formats (cannot be changed, this is fixed emdas syntax)
@@ -140,7 +139,7 @@ void emdas_shutdown(struct emdas *emd)
 }
 
 // -----------------------------------------------------------------------
-static int emdas_cell_fill(struct emdas_cell *cell, int want_type, int addr, uint16_t word)
+static int emdas_cell_fill(struct emdas_cell *cell, int want_type, int offset, uint16_t word)
 {
 	assert(cell);
 
@@ -149,7 +148,7 @@ static int emdas_cell_fill(struct emdas_cell *cell, int want_type, int addr, uin
 	// cell is believed to be initialized with 0s
 	// if particular field is not used, its value is garbage
 
-	cell->addr = addr;
+	cell->offset = offset;
 	cell->v = word;
 	cell->type = want_type;
 
@@ -158,15 +157,15 @@ static int emdas_cell_fill(struct emdas_cell *cell, int want_type, int addr, uin
 			o = emdas_get_op(word);
 			assert(o);
 			if (o->op_id == OP_NONE) {
-				return emdas_cell_fill(cell, CELL_DATA, addr, word);
+				return emdas_cell_fill(cell, CELL_DATA, offset, word);
 			} else {
+				cell->len = 1;
+
 				// copy everything, we may want to change it later on
 				cell->op_id = o->op_id;
 				cell->op_group = o->group_id;
 				cell->op_flags = o->op_flags;
 				cell->arg_flags = o->arg_flags;
-
-				cell->len = 1;
 
 				// rA register argument
 				if ((cell->arg_flags & ARG_REG)) {
@@ -189,7 +188,7 @@ static int emdas_cell_fill(struct emdas_cell *cell, int want_type, int addr, uin
 					cell->arg_short = _T(cell->v);
 				} else if ((cell->arg_flags & ARG_SHORT8)) {
 					cell->arg_short = _b(cell->v);
-					// early fix for BLC argument
+					// early fix for BLC argument - needs to be here for proper emdas syntax
 					if (cell->op_id == OP_BLC) {
 						cell->arg_short <<= 8;
 					}
@@ -215,7 +214,7 @@ static int emdas_cell_fill(struct emdas_cell *cell, int want_type, int addr, uin
 }
 
 // -----------------------------------------------------------------------
-struct emdas_cell * emdas_dasm(struct emdas *emd, uint16_t start_addr, int word_count)
+struct emdas_cell * emdas_dasm(struct emdas *emd, uint16_t base_addr, int word_count)
 {
 	struct emdas_cell *cells = calloc(word_count, sizeof(struct emdas_cell));
 	if (!cells) {
@@ -226,25 +225,33 @@ struct emdas_cell * emdas_dasm(struct emdas *emd, uint16_t start_addr, int word_
 	struct emdas_cell *cell = cells;
 	struct emdas_cell *missing_arg = NULL;
 
-	for (int count = 0 ; count < word_count ; count++, cell++) {
+	emd->base_addr = base_addr;
 
-		word = emd->get_word(start_addr+count);
+	for (int offset=0 ; offset<word_count ; offset++, cell++) {
+
+		word = emd->get_word(emd->base_addr+offset);
 
 		if (word < 0) { // could not fetch word
-			emdas_cell_fill(cell, CELL_NA, start_addr+count, 0);
+			emdas_cell_fill(cell, CELL_NA, emd->base_addr+offset, 0);
 		} else if (missing_arg) { // previous cell was missing an argument, fill it now
-			emdas_cell_fill(cell, CELL_ARG, start_addr+count, word);
+			emdas_cell_fill(cell, CELL_ARG, emd->base_addr+offset, word);
 			missing_arg->arg_16 = cell;
 			missing_arg->len += 1;
 			missing_arg = NULL;
 		} else { // fill current cell, try as instruction
-			if (emdas_cell_fill(cell, CELL_INS, start_addr+count, word) < 0) {
+			if (emdas_cell_fill(cell, CELL_INS, emd->base_addr+offset, word) < 0) {
 				missing_arg = cell;
 			}
 		}
 	}
 
 	return cells;
+}
+
+// -----------------------------------------------------------------------
+void emdas_analyze(struct emdas *emd, struct emdas_cell *cells, int cell_count)
+{
+
 }
 
 // -----------------------------------------------------------------------
@@ -420,7 +427,7 @@ void __emdas_cell_dump(FILE *f, struct emdas *emd, struct emdas_cell *cell)
 	};
 
 	fprintf(f, "---------------------------------------------\n");
-	fprintf(f, "Address    : 0x%04x\n", cell->addr);
+	fprintf(f, "Address    : 0x%04x + %i\n", emd->base_addr, cell->offset);
 	fprintf(f, "Cell type  : %s\n", cell_type_names[cell->type]);
 	fprintf(f, "Cell label : %s\n", cell->label);
 	fprintf(f, "Cell value : 0x%04x\n", cell->v);
@@ -465,3 +472,4 @@ void __emdas_cell_dump(FILE *f, struct emdas *emd, struct emdas_cell *cell)
 
 
 // vim: tabstop=4 shiftwidth=4 autoindent
+

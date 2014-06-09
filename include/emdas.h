@@ -125,7 +125,7 @@ enum emdas_syn_elem {
 };
 
 struct emdas_cell {
-	uint16_t addr;
+	uint16_t offset;
 	uint16_t v;
 	int type;
 	int len;
@@ -150,15 +150,16 @@ struct emdas {
 	get_word_f get_word;
 	char *emdas_elem_format[SYN_ELEM_MAX];
 	char buf[EMDAS_LINE_MAX+1];
+	int base_addr;
 };
 
 struct emdas * emdas_init(get_word_f get_word);
 void emdas_shutdown(struct emdas *emd);
 
-struct emdas_cell * emdas_dasm(struct emdas *emd, uint16_t start_addr, int word_count);
+struct emdas_cell * emdas_dasm(struct emdas *emd, uint16_t base_addr, int word_count);
 void __emdas_cell_dump(FILE *f, struct emdas *emd, struct emdas_cell *cell);
 char * emdas_make_text(struct emdas *emd, struct emdas_cell *cell);
-char * emdas_analyze(struct emdas *emd, struct emdas_cell *cell, int cell_count);
+void emdas_analyze(struct emdas *emd, struct emdas_cell *cells, int cell_count);
 
 
 #endif
