@@ -19,6 +19,7 @@
 #define EMDAS_H
 
 #include <inttypes.h>
+#include <stdio.h>
 
 #define EMDAS_LINE_MAX 4 * 1024
 
@@ -155,7 +156,10 @@ struct emdas * emdas_init(get_word_f get_word);
 void emdas_shutdown(struct emdas *emd);
 
 struct emdas_cell * emdas_dasm(struct emdas *emd, uint16_t start_addr, int word_count);
-void emdas_cell_dump(struct emdas *emd, struct emdas_cell *cell);
+void __emdas_cell_dump(FILE *f, struct emdas *emd, struct emdas_cell *cell);
+char * emdas_make_text(struct emdas *emd, struct emdas_cell *cell);
+char * emdas_analyze(struct emdas *emd, struct emdas_cell *cell, int cell_count);
+
 
 #endif
 

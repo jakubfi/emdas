@@ -27,23 +27,23 @@
 
 const char *emdas_ilist[] = {
 			".word",
-/* NORM */	"LW", "TW", "LS", "RI", "RW", "PW", "RJ", "IS",
-			"BB", "BM", "BS", "BC", "BN", "OU", "IN",
-/* F/D */	"AD", "SD", "MW", "DW", "AF", "SF", "MF", "DF",
-/* NORM */	"AW", "AC", "SW", "CW", "OR", "OM", "NR", "NM",
-			"ER", "EM", "XR", "XM", "CL", "LB", "RB", "CB",
-/* KA1 */	"AWT", "TRB", "IRB", "DRB", "CWT", "LWT", "LWS", "RWS",
-/* JS */	"UJS", "NOP", "JLS", "JES", "JGS", "JVS", "JXS", "JYS", "JCS",
-/* KA2 */	"BLC", "EXL", "BRC", "NRF",
-/* C */		"RIC", "ZLB", "SXU", "NGA", "SLZ", "SLY", "SLX", "SRY", "NGL", "RPC",
-			"SHC",
-			"RKY", "ZRB", "SXL", "NGC", "SVZ", "SVY", "SVX", "SRX", "SRZ", "LPC",
-/* S */		"HLT", "MCL", "CIT", "SIL", "SIU", "SIT", "GIU", "LIP", "GIL",
-			"CRON", "SINT", "SIND",
-/* J */		"UJ", "JL", "JE", "JG", "JZ", "JM", "JN", "LJ",
-/* L */		"LD", "LF", "LA", "LL", "TD", "TF", "TA", "TL",
-/* G */		"RD", "RF", "RA", "RL", "PD", "PF", "PA", "PL",
-/* B/N */	"MB", "IM", "KI", "FI", "SP", "MD", "RZ", "IB"
+/* NORM */	"lw", "tw", "ls", "ri", "rw", "pw", "rj", "is",
+			"bb", "bm", "bs", "bc", "bn", "ou", "in",
+/* F/D */	"ad", "sd", "mw", "dw", "af", "sf", "mf", "df",
+/* NORM */	"aw", "ac", "sw", "cw", "or", "om", "nr", "nm",
+			"er", "em", "xr", "xm", "cl", "lb", "rb", "cb",
+/* KA1 */	"awt", "trb", "irb", "drb", "cwt", "lwt", "lws", "rws",
+/* JS */	"ujs", "nop", "jls", "jes", "jgs", "jvs", "jxs", "jys", "jcs",
+/* KA2 */	"blc", "exl", "brc", "nrf",
+/* C */		"ric", "zlb", "sxu", "nga", "slz", "sly", "slx", "sry", "ngl", "rpc",
+			"shc",
+			"rky", "zrb", "sxl", "ngc", "svz", "svy", "svx", "srx", "srz", "lpc",
+/* S */		"hlt", "mcl", "cit", "sil", "siu", "sit", "giu", "lip", "gil",
+			"cron", "sint", "sind",
+/* J */		"uj", "jl", "je", "jg", "jz", "jm", "jn", "lj",
+/* L */		"ld", "lf", "la", "ll", "td", "tf", "ta", "tl",
+/* G */		"rd", "rf", "ra", "rl", "pd", "pf", "pa", "pl",
+/* B/N */	"mb", "im", "ki", "fi", "sp", "md", "rz", "ib"
 };
 
 // Default element formats (those can be changed by the user)
@@ -60,7 +60,8 @@ const char *emdas_default_elem_format[SYN_ELEM_MAX] = {
 // Instructions syntax identifiers
 
 enum emdas_syn_ins {
-	SYN_INS_RN = 0,
+	SYN_INS_DATA,
+	SYN_INS_RN,
 	SYN_INS_N,
 	SYN_INS_RT,
 	SYN_INS_RV,
@@ -83,11 +84,14 @@ enum emdas_syn_ins {
 	%B - byte argument (8-bit)
 	%n - normal argument (using label name, if available)
 	%N - normal argument (numeric)
+	%d - cell data
+	%A - cell address
 */
 
 // Instruction formats (cannot be changed, this is fixed emdas syntax)
 
 const char *emdas_ins_format[SYN_INS_MAX] = {
+	/* SYN_INS_DATA */	"%m %d",
 	/* SYN_INS_RN */	"%m %r, %n",
 	/* SYN_INS_N */		"%m %n",
 	/* SYN_INS_RT */	"%m %r, %t",
@@ -185,6 +189,10 @@ static int emdas_cell_fill(struct emdas_cell *cell, int want_type, int addr, uin
 					cell->arg_short = _T(cell->v);
 				} else if ((cell->arg_flags & ARG_SHORT8)) {
 					cell->arg_short = _b(cell->v);
+					// early fix for BLC argument
+					if (cell->op_id == OP_BLC) {
+						cell->arg_short <<= 8;
+					}
 				}
 
 				// check if instruction needs another cell for normarg argument
@@ -244,36 +252,44 @@ static int emdas_normarg_format(struct emdas *emd, char *buf, int maxlen, struct
 {
 	int pos = 0;
 
+	// D-modification is present
 	if ((cell->arg_flags & ARG_MOD_D)) {
 		pos += snprintf(buf+pos, maxlen-pos, "[");
 	}
 
+	// no 2nd word needed
 	if (!(cell->arg_flags & ARG_2WORD)) {
-		pos += snprintf(buf+pos, maxlen-pos, "r%i", cell->rc);
+		pos += snprintf(buf+pos, maxlen-pos, emd->emdas_elem_format[SYN_ELEM_REG], cell->rc);
 		if ((cell->arg_flags & ARG_MOD_B)) {
-			pos += snprintf(buf+pos, maxlen-pos, "+r%i", cell->rb);
+			pos += snprintf(buf+pos, maxlen-pos, "+");
+			pos += snprintf(buf+pos, maxlen-pos, emd->emdas_elem_format[SYN_ELEM_REG], cell->rb);
 		}
+	// 16-bit arg in 2nd word
 	} else {
+		// B-modification is present
 		if ((cell->arg_flags & ARG_MOD_B)) {
-			pos += snprintf(buf+pos, maxlen-pos, "r%i", cell->rb);
+			pos += snprintf(buf+pos, maxlen-pos, emd->emdas_elem_format[SYN_ELEM_REG], cell->rb);
 			if (use_name && cell->arg_name) {
 				pos += snprintf(buf+pos, maxlen-pos, "+%s", cell->arg_name);
 			} else if (!cell->arg_16) {
 				pos += snprintf(buf+pos, maxlen-pos, "+???");
 			} else {
-				pos += snprintf(buf+pos, maxlen-pos, "+0x%04x", (uint16_t) cell->arg_16->v);
+				pos += snprintf(buf+pos, maxlen-pos, "+");
+				pos += snprintf(buf+pos, maxlen-pos, emd->emdas_elem_format[SYN_ELEM_ARG_16], cell->arg_16->v);
 			}
+		// no B-modification
 		} else {
 			if (use_name && cell->arg_name) {
 				pos += snprintf(buf+pos, maxlen-pos, "%s", cell->arg_name);
 			} else if (!cell->arg_16) {
 				pos += snprintf(buf+pos, maxlen-pos, "???");
 			} else {
-				pos += snprintf(buf+pos, maxlen-pos, "0x%04x", (uint16_t) cell->arg_16->v);
+				pos += snprintf(buf+pos, maxlen-pos, emd->emdas_elem_format[SYN_ELEM_ARG_16], cell->arg_16->v);
 			}
 		}
 	}
 
+	// D-modification is present
 	if ((cell->arg_flags & ARG_MOD_D)) {
 		pos += snprintf(buf+pos, maxlen-pos, "]");
 	}
@@ -327,6 +343,9 @@ static char * emdas_format(struct emdas *emd, int format, struct emdas_cell *cel
 				case 'N': // normal argument (numeric)
 					bpos += emdas_normarg_format(emd, bcur, bmax, cell, 0);
 					break;
+				case 'd':
+					bpos += snprintf(bcur, bmax, emd->emdas_elem_format[SYN_ELEM_ARG_16], cell->v);
+					break;
 				default: // print out unknown escape sequence
 					bpos += snprintf(bcur, bmax, "%%%c", *fmt);
 					break;
@@ -348,34 +367,41 @@ static char * emdas_format(struct emdas *emd, int format, struct emdas_cell *cel
 }
 
 // -----------------------------------------------------------------------
-char * emdas_get_text(struct emdas *emd, struct emdas_cell *cell)
+char * emdas_make_text(struct emdas *emd, struct emdas_cell *cell)
 {
 	char *str;
 	int type = cell->type;
 	int arg = cell->arg_flags;
 
-	if ((type == CELL_UNKNOWN) || (type == CELL_NA) || (arg & ARG_UNKNOWN)) {
-		str = NULL;
-	} else if ((arg & ARG_NONE)) {
-		str = emdas_format(emd, SYN_INS__, cell);
-	} else if ((arg & ARG_REG)) {
-		if ((arg & ARG_NORM)) {
-			str = emdas_format(emd, SYN_INS_RN, cell);
+	// cell is data
+	if (type == CELL_DATA) {
+		str = emdas_format(emd, SYN_INS_DATA, cell);
+	// cell is instruction
+	} else if (type == CELL_INS) {
+		if ((arg & ARG_NONE)) {
+			str = emdas_format(emd, SYN_INS__, cell);
+		} else if ((arg & ARG_REG)) {
+			if ((arg & ARG_NORM)) {
+				str = emdas_format(emd, SYN_INS_RN, cell);
+			} else if ((arg & ARG_SHORT7)) {
+				str = emdas_format(emd, SYN_INS_RT, cell);
+			} else if ((arg & ARG_SHORT4)) {
+				str = emdas_format(emd, SYN_INS_RV, cell);
+			} else if ((arg & ARG_SHORT8)) {
+				str = NULL;
+			} else {
+				str = emdas_format(emd, SYN_INS_R, cell);
+			}
+		} else if ((arg & ARG_NORM)) {
+			str = emdas_format(emd, SYN_INS_N, cell);
 		} else if ((arg & ARG_SHORT7)) {
-			str = emdas_format(emd, SYN_INS_RT, cell);
-		} else if ((arg & ARG_SHORT4)) {
-			str = emdas_format(emd, SYN_INS_RV, cell);
+			str = emdas_format(emd, SYN_INS_T, cell);
 		} else if ((arg & ARG_SHORT8)) {
-			str = NULL;
+			str = emdas_format(emd, SYN_INS_B, cell);
 		} else {
-			str = emdas_format(emd, SYN_INS_R, cell);
+			str = NULL;
 		}
-	} else if ((arg & ARG_NORM)) {
-		str = emdas_format(emd, SYN_INS_N, cell);
-	} else if ((arg & ARG_SHORT7)) {
-		str = emdas_format(emd, SYN_INS_T, cell);
-	} else if ((arg & ARG_SHORT8)) {
-		str = emdas_format(emd, SYN_INS_B, cell);
+	// cell is unknown, N/A or ARG
 	} else {
 		str = NULL;
 	}
@@ -384,7 +410,7 @@ char * emdas_get_text(struct emdas *emd, struct emdas_cell *cell)
 }
 
 // -----------------------------------------------------------------------
-void emdas_cell_dump(struct emdas *emd, struct emdas_cell *cell)
+void __emdas_cell_dump(FILE *f, struct emdas *emd, struct emdas_cell *cell)
 {
 	static char *cell_type_names[] = {
 		 "UNKNOWN", "N/A", "DATA", "OP", "ARG"
@@ -393,28 +419,28 @@ void emdas_cell_dump(struct emdas *emd, struct emdas_cell *cell)
 		"NONE", "NORM", "FD", "KA1", "JS", "KA2", "C", "S", "J", "L", "G", "BN"
 	};
 
-	printf("---------------------------------------------\n");
-	printf("Address    : 0x%04x\n", cell->addr);
-	printf("Cell type  : %s\n", cell_type_names[cell->type]);
-	printf("Cell label : %s\n", cell->label);
-	printf("Cell value : 0x%04x\n", cell->v);
-	printf("OP group   : %s\n", op_group_names[cell->op_group]);
-	printf("OP flags   : %s%s%s\n",
+	fprintf(f, "---------------------------------------------\n");
+	fprintf(f, "Address    : 0x%04x\n", cell->addr);
+	fprintf(f, "Cell type  : %s\n", cell_type_names[cell->type]);
+	fprintf(f, "Cell label : %s\n", cell->label);
+	fprintf(f, "Cell value : 0x%04x\n", cell->v);
+	fprintf(f, "OP group   : %s\n", op_group_names[cell->op_group]);
+	fprintf(f, "OP flags   : %s%s%s\n",
 		(cell->op_flags & OP_FL_OS) ? "OS, " : "",
 		(cell->op_flags & OP_FL_IO) ? "IO, " : "",
 		(cell->op_flags & OP_FL_MX16) ? "MX16, " : ""
 	);
-	printf("OP ID      : %i\n", cell->op_id);
-	printf("Mnemo      : %s\n", emdas_ilist[cell->op_id]);
-	printf("Registers  : rA = %i, rB = %i, rC = %i\n", cell->ra, cell->rb, cell->rc);
-	printf("Arg. name  : %s\n", cell->arg_name);
-	printf("Arg. short : %i\n", cell->arg_short);
+	fprintf(f, "OP ID      : %i\n", cell->op_id);
+	fprintf(f, "Mnemo      : %s\n", emdas_ilist[cell->op_id]);
+	fprintf(f, "Registers  : rA = %i, rB = %i, rC = %i\n", cell->ra, cell->rb, cell->rc);
+	fprintf(f, "Arg. name  : %s\n", cell->arg_name);
+	fprintf(f, "Arg. short : %i\n", cell->arg_short);
 	if (cell->arg_16) {
-		printf("Arg. 16    : %i\n", cell->arg_16->v);
+		fprintf(f, "Arg. 16    : %i\n", cell->arg_16->v);
 	} else {
-		printf("Arg. 16    : NULL\n");
+		fprintf(f, "Arg. 16    : NULL\n");
 	}
-	printf("Arg flags  : %s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s\n",
+	fprintf(f, "Arg flags  : %s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s\n",
 		(cell->arg_flags & ARG_NONE) ? "NONE, " : "",
 		(cell->arg_flags & ARG_REG) ? "REG, " : "",
 		(cell->arg_flags & ARG_REGIND) ? "REGIND, " : "",
@@ -432,8 +458,8 @@ void emdas_cell_dump(struct emdas *emd, struct emdas_cell *cell)
 		(cell->arg_flags & ARG_MOD_D) ? "MOD_D, " : "",
 		(cell->arg_flags & ARG_MOD_B) ? "MOD_B, " : ""
 	);
-	char *d = emdas_get_text(emd, cell);
-	printf("Disassm    : %s\n", d);
+	char *d = emdas_make_text(emd, cell);
+	fprintf(f, "Disassm    : %s\n", d);
 	free(d);
 }
 
