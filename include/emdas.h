@@ -15,14 +15,17 @@
 //  Foundation, Inc.,
 //  51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
-
 #ifndef EMDAS_H
 #define EMDAS_H
+
+#include <inttypes.h>
+
+#define EMDAS_LINE_MAX 4 * 1024
 
 // opcode identifiers (also act as indexes for opcode names)
 
 enum emdas_op_ids {
-			OP_ILL = 0,
+			OP_NONE = 0,
 /* NORM */	OP_LW, OP_TW, OP_LS, OP_RI, OP_RW, OP_PW, OP_RJ, OP_IS,
 			OP_BB, OP_BM, OP_BS, OP_BC, OP_BN, OP_OU, OP_IN,
 /* F/D */	OP_AD, OP_SD, OP_MW, OP_DW, OP_AF, OP_SF, OP_MF, OP_DF,
@@ -47,9 +50,11 @@ enum emdas_op_ids {
 
 enum emdas_cell_types {
 	CELL_UNKNOWN	= 0, // cell hasn't been processed yet, all cell data is invalid
-	CELL_DATA		= 1, // cell does not match any opcode (likely data)
-	CELL_OP			= 2, // cell matches an opcode (likely instruction)
-}
+	CELL_NA			= 1, // cell could not be processed (address not available)
+	CELL_DATA		= 2, // cell does not match any opcode (likely data)
+	CELL_INS			= 3, // cell matches an opcode (likely instruction)
+	CELL_ARG		= 4, // cell contains additional instruction argument
+};
 
 // opcode groups
 
@@ -66,15 +71,15 @@ enum emdas_op_groups {
 	OP_GR_L,
 	OP_GR_G,
 	OP_GR_BN,
-}
+};
 
 // convenient opcode flags highlighting cases that may require additional treatment
 
 enum emdas_op_flags {
-	OP_SIMPLE	= 0,		// nothing special
-	OP_OS		= 1 << 1,	// instruction is user-illegal (OS level only)
-	OP_IO		= 1 << 2,	// I/O instruction
-	OP_MX16		= 1 << 3,	// additional MX-16 instruction
+	OP_FL_NONE		= 0,		// not an instruction or nothing special
+	OP_FL_OS		= 1 << 1,	// instruction is user-illegal (OS level only)
+	OP_FL_IO		= 1 << 2,	// I/O instruction
+	OP_FL_MX16		= 1 << 3,	// additional MX-16 instruction
 };
 
 // instruction arguments description
@@ -106,17 +111,51 @@ enum emdas_arg_flags {
 #define ARG_ADDR (ARG_A_JUMP | ARG_A_BYTE | ARG_A_WORD | ARG_A_DWORD | ARG_A_FLOAT)
 #define ARG_IMM (ARG_SHORT4 | ARG_SHORT7 | ARG_SHORT8 | ARG_2WORD)
 
+// syntax elements identifiers
+
+enum emdas_syn_elem {
+	SYN_ELEM_MNEMO = 0,
+	SYN_ELEM_REG,
+	SYN_ELEM_ARG_7,
+	SYN_ELEM_ARG_4,
+	SYN_ELEM_ARG_8,
+	SYN_ELEM_ARG_16,
+	SYN_ELEM_MAX
+};
+
 struct emdas_cell {
+	uint16_t addr;
 	uint16_t v;
-	int op;
-	int cell_type;
+	int type;
+	int len;
+
+	int ra, rb, rc;
+
+	int op_id;
 	int op_group;
 	unsigned op_flags;
 	unsigned arg_flags;
-	uint16_t arg;
+
+	int arg_short;
+	struct emdas_cell *arg_16;
 	char *arg_name;
+
 	char *label;
-}
+};
+
+typedef int (*get_word_f)(uint16_t addr);
+
+struct emdas {
+	get_word_f get_word;
+	char *emdas_elem_format[SYN_ELEM_MAX];
+	char buf[EMDAS_LINE_MAX+1];
+};
+
+struct emdas * emdas_init(get_word_f get_word);
+void emdas_shutdown(struct emdas *emd);
+
+struct emdas_cell * emdas_dasm(struct emdas *emd, uint16_t start_addr, int word_count);
+void emdas_cell_dump(struct emdas *emd, struct emdas_cell *cell);
 
 #endif
 

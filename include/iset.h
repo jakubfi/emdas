@@ -20,51 +20,30 @@
 
 #include <inttypes.h>
 
-typedef struct opdef * (*opfun)(uint16_t opcode);
-
 // macros to access opcode fields
-#define _OP(x)  (((x) & 0b1111110000000000) >> 10)
-#define _D(x)   (((x) & 0b0000001000000000) >> 9)
-#define _A(x)   (((x) & 0b0000000111000000) >> 6)
-#define _B(x)   (((x) & 0b0000000000111000) >> 3)
-#define _C(x)   (((x) & 0b0000000000000111) >> 0)
-#define _T(x)   (int8_t) (((x) & 0b0000000000111111) * (((x) & 0b0000001000000000) ? -1 : 1))
-#define _t(x)   (uint8_t) (((x) & 0b0000000000000111) | (((x) & 0b0000001000000000) >> 6)) // only SHC uses it
-#define _b(x)   ((x) & 0b0000000011111111)
+#define _OP(x)	(((x) & 0b1111110000000000) >> 10)
+#define _D(x)	(((x) & 0b0000001000000000) >> 9)
+#define _A(x)	(((x) & 0b0000000111000000) >> 6)
+#define _B(x)	(((x) & 0b0000000000111000) >> 3)
+#define _C(x)	(((x) & 0b0000000000000111) >> 0)
+#define _T(x)	(int8_t) (((x) & 0b0000000000111111) * (((x) & 0b0000001000000000) ? -1 : 1))
+#define _t(x)	(uint8_t) (((x) & 0b0000000000000111) | (((x) & 0b0000001000000000) >> 6)) // only SHC uses it
+#define _b(x)	((x) & 0b0000000011111111)
+
+struct opdef;
+
+typedef const struct opdef * (*opfun)(uint16_t opcode);
 
 struct opdef {
 	uint16_t opcode;
-	int type;
-	char *mnemo;
+	int op_id;
+	int group_id;
 	opfun extop_fun;
-	unsigned flags;
+	unsigned arg_flags;
+	unsigned op_flags;
 };
 
-enum op_flags {
-	F_RELATIVE	= 1 << 0,
-	F_JUMP		= 1 << 1,
-	F_NORM		= 1 << 2,
-	F_BNORM		= 1 << 3,
-	F_SHORT		= 1 << 4,
-	F_BYTE		= 1 << 5,
-	F_NOARG		= 1 << 6,
-	F_ADDR		= 1 << 7,
-	F_ADWORD	= 1 << 8,
-	F_AFLOAT	= 1 << 9,
-	F_IO		= 1 << 10,
-};
-
-struct opdef * get_op(uint16_t opcode);
-struct opdef * get_extop_37(uint16_t opcode);
-struct opdef * get_extop_70(uint16_t opcode);
-struct opdef * get_extop_71(uint16_t opcode);
-struct opdef * get_extop_72(uint16_t opcode);
-struct opdef * get_extop_73(uint16_t opcode);
-struct opdef * get_extop_74(uint16_t opcode);
-struct opdef * get_extop_75(uint16_t opcode);
-struct opdef * get_extop_76(uint16_t opcode);
-struct opdef * get_extop_77(uint16_t opcode);
-
+const struct opdef * emdas_get_op(uint16_t opcode);
 
 #endif
 
