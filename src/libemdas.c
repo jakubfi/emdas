@@ -21,11 +21,16 @@
 #include <inttypes.h>
 #include <assert.h>
 #include <limits.h>
+#include <arpa/inet.h>
 
 #include "emdas.h"
 #include "iset.h"
 
-const char *emdas_ilist[] = {
+#define   FANY(v, flags) (((v) & (flags)) != 0)
+#define  FNONE(v, flags) (((v) & (flags)) == 0)
+#define FMATCH(v, flags) (((v) & (flags)) == (flags))
+
+static const char *emdas_ilist[] = {
 			".word",
 /* NORM */	"lw", "tw", "ls", "ri", "rw", "pw", "rj", "is",
 			"bb", "bm", "bs", "bc", "bn", "ou", "in",
@@ -48,13 +53,15 @@ const char *emdas_ilist[] = {
 
 // Default element formats (those can be changed by the user)
 
-const char *emdas_default_elem_format[SYN_ELEM_MAX] = {
-	/* SYN_MNEMO */		"%-5s",
-	/* SYN_REG */		"r%i",
-	/* SYN_ARG_7 */		"%i",
-	/* SYN_ARG_4 */		"%i",
-	/* SYN_ARG_8 */		"%i",
-	/* SYN_ARG_16 */	"0x%04x",
+static const char *emdas_default_elem_format[SYN_ELEM_MAX] = {
+	/* SYN_ELEM_MNEMO */	"%-5s",
+	/* SYN_ELEM_REG */		"r%i",
+	/* SYN_ELEM_ARG_7 */	"%i",
+	/* SYN_ELEM_ARG_4 */	"%i",
+	/* SYN_ELEM_ARG_8 */	"%i",
+	/* SYN_ELEM_ARG_16 */	"0x%x",
+	/* SYN_ELEM_ADDR */		"0x%04x: ",
+	/* SYN_ELEM_LABEL */	"%10s ", // auto-includes ':'
 };
 
 // Instructions syntax identifiers
@@ -84,12 +91,12 @@ enum emdas_syn_ins {
 	%B - byte argument (8-bit)
 	%n - normal argument (using label name, if available)
 	%N - normal argument (numeric)
-	%d - cell data
+	%d - cell value as data
 */
 
 // Instruction formats (cannot be changed, this is fixed emdas syntax)
 
-const char *emdas_ins_format[SYN_INS_MAX] = {
+static const char *emdas_ins_format[SYN_INS_MAX] = {
 	/* SYN_INS_DATA */	"%m %d",
 	/* SYN_INS_RN */	"%m %r, %n",
 	/* SYN_INS_N */		"%m %n",
@@ -101,27 +108,20 @@ const char *emdas_ins_format[SYN_INS_MAX] = {
     /* SYN_INS__ */		"%m",
 };
 
-// -----------------------------------------------------------------------
-struct emdas * emdas_init(get_word_f get_word)
-{
-	if (!get_word) return NULL;
+static char * emdas_make_text(struct emdas_cell *cell, char **elem_format, unsigned features);
 
+// -----------------------------------------------------------------------
+struct emdas * emdas_init()
+{
 	struct emdas *emd = calloc(1, sizeof(struct emdas));
 	if (!emd) {
 		return NULL;
 	}
 
-	emd->get_word = get_word;
-
 	// setup default element formats
-	for (int i=0 ; i<SYN_ELEM_MAX ; i++) {
-		int len = strlen(emdas_default_elem_format[i])+1;
-		emd->emdas_elem_format[i] = malloc(len);
-		if (!emd->emdas_elem_format[i]) {
-			emdas_shutdown(emd);
-			return NULL;
-		}
-		memcpy(emd->emdas_elem_format[i], emdas_default_elem_format[i], len);
+	if (emdas_reset_syntax(emd)) {
+		emdas_shutdown(emd);
+		return NULL;
 	}
 
 	return emd;
@@ -133,171 +133,284 @@ void emdas_shutdown(struct emdas *emd)
 	if (!emd) return;
 
 	for (int i=0 ; i<SYN_ELEM_MAX ; i++) {
-		free(emd->emdas_elem_format[i]);
+		free(emd->elem_format[i]);
 	}
+
+	for (int i=0 ; i<0xffff ; i++) {
+		free(emd->cells[i].text);
+		free(emd->cells[i].label);
+		free(emd->cells[i].arg_name);
+	}
+
 	free(emd);
 }
 
 // -----------------------------------------------------------------------
-static int emdas_cell_fill(struct emdas_cell *cell, int want_type, int offset, uint16_t word)
+int emdas_set_syntax(struct emdas *emd, int syn_id, const char *syn)
+{
+	if ((syn_id < 0) || (syn_id >= SYN_ELEM_MAX)) {
+		return -1;
+	}
+
+	free(emd->elem_format[syn_id]);
+
+	int len = strlen(syn) + 1;
+	emd->elem_format[syn_id] = malloc(len);
+	if (!emd->elem_format[syn_id]) {
+		return -1;
+	}
+	memcpy(emd->elem_format[syn_id], syn, len);
+
+	emd->syn_generation++;
+
+	return 0;
+}
+
+// -----------------------------------------------------------------------
+int emdas_reset_syntax(struct emdas *emd)
+{
+	for (int i=0 ; i<SYN_ELEM_MAX ; i++) {
+		if (emdas_set_syntax(emd, i, emdas_default_elem_format[i])) {
+			return -1;
+		}
+	}
+	return 0;
+}
+
+// -----------------------------------------------------------------------
+void emdas_enable_features(struct emdas *emd, unsigned features)
+{
+	emd->features |= features;
+}
+
+// -----------------------------------------------------------------------
+void emdas_disable_features(struct emdas *emd, unsigned features)
+{
+	emd->features &= ~features;
+}
+
+// -----------------------------------------------------------------------
+void emdas_set_features(struct emdas *emd, unsigned features)
+{
+	emd->features = features;
+}
+
+// -----------------------------------------------------------------------
+struct emdas_cell * emdas_get_cell(struct emdas *emd, uint16_t addr)
+{
+	struct emdas_cell *cell = emd->cells + addr;
+
+	// check if we need to (re-)generate text representation
+	if (!cell->text || (cell->syn_generation != emd->syn_generation)) {
+		cell->text = emdas_make_text(cell, emd->elem_format, emd->features);
+	    cell->syn_generation = emd->syn_generation;
+	}
+
+	return cell;
+}
+
+// -----------------------------------------------------------------------
+static void emdas_fill_data(struct emdas_cell *cell, uint16_t addr, uint16_t word)
 {
 	assert(cell);
 
-	const struct opdef *o;
-
-	// cell is believed to be initialized with 0s
-	// if particular field is not used, its value is garbage
-
-	cell->offset = offset;
+	cell->addr = addr;
 	cell->v = word;
-	cell->type = want_type;
+	cell->type = CELL_DATA;
 
-	switch (want_type) {
-		case CELL_INS:
-			o = emdas_get_op(word);
-			assert(o);
-			if (o->op_id == OP_NONE) {
-				return emdas_cell_fill(cell, CELL_DATA, offset, word);
-			} else {
-				cell->len = 1;
+	cell->op_id = OP_NONE;
+	cell->op_group = OP_GR_NONE;
+	cell->flags = FL_NONE;
 
-				// copy everything, we may want to change it later on
-				cell->op_id = o->op_id;
-				cell->op_group = o->group_id;
-				cell->op_flags = o->op_flags;
-				cell->arg_flags = o->arg_flags;
+	cell->arg_short = INT_MAX;
+	cell->arg_16 = NULL;
+	cell->arg_name = NULL;
 
-				// rA register argument
-				if ((cell->arg_flags & ARG_REG)) {
-					cell->ra = _A(cell->v);
-				}
+	cell->label = NULL;
+}
 
-				// set normarg-related things
-				if ((cell->arg_flags & ARG_NORM)) {
-					cell->rc = _C(cell->v);
-					cell->rb = _B(cell->v);
-					if (!_C(cell->v)) cell->arg_flags |= ARG_2WORD;
-					if (_D(cell->v)) cell->arg_flags |= ARG_MOD_D;
-					if (_B(cell->v)) cell->arg_flags |= ARG_MOD_B;
-				}
+// -----------------------------------------------------------------------
+static void emdas_fill_arg(struct emdas_cell *cell, uint16_t addr, uint16_t word)
+{
+	emdas_fill_data(cell, addr, word);
+	cell->type = CELL_ARG;
+}
 
-				// fill in argument value
-				if ((cell->arg_flags & ARG_SHORT4)) {
-					cell->arg_short = _t(cell->v);
-				} else if ((cell->arg_flags & ARG_SHORT7)) {
-					cell->arg_short = _T(cell->v);
-				} else if ((cell->arg_flags & ARG_SHORT8)) {
-					cell->arg_short = _b(cell->v);
-					// early fix for BLC argument - needs to be here for proper emdas syntax
-					if (cell->op_id == OP_BLC) {
-						cell->arg_short <<= 8;
-					}
-				}
+// -----------------------------------------------------------------------
+static int emdas_fill_ins(struct emdas_cell *cell, const struct opdef *o, uint16_t addr, uint16_t word)
+{
+	assert(cell && o);
 
-				// check if instruction needs another cell for normarg argument
-				if ((cell->arg_flags & ARG_NORM) && (cell->arg_flags & ARG_2WORD)) {
-					return -1;
-				} else {
-					return 0;
-				}
-			}
-			break;
-		case CELL_NA:
-			break;
-		case CELL_DATA:
-		case CELL_ARG:
-			cell->len = 1;
-			break;
+	cell->addr = addr;
+	cell->v = word;
+	cell->type = CELL_INS;
+
+	// copy everything, we may want to change it later on
+	cell->op_id = o->op_id;
+	cell->op_group = o->group_id;
+	cell->flags = o->flags;
+
+	// set normarg-related things
+	if (FMATCH(cell->flags, FL_ARG_NORM)) {
+		if (!_C(cell->v)) cell->flags |= FL_2WORD;
+		if (_D(cell->v)) cell->flags |= FL_MOD_D;
+		if (_B(cell->v)) cell->flags |= FL_MOD_B;
+	}
+
+	// fill in short argument value
+	if (FMATCH(cell->flags, FL_ARG_SHORT4)) {
+		cell->arg_short = _t(cell->v);
+	} else if (FMATCH(cell->flags, FL_ARG_SHORT7)) {
+		cell->arg_short = _T(cell->v);
+	} else if (FMATCH(cell->flags, FL_ARG_SHORT8)) {
+		cell->arg_short = _b(cell->v);
+		// early fix for BLC argument - needs to be here for proper emdas syntax
+		if (cell->op_id == OP_BLC) {
+			cell->arg_short <<= 8;
+		}
 	}
 
 	return 0;
 }
 
 // -----------------------------------------------------------------------
-struct emdas_cell * emdas_dasm(struct emdas *emd, uint16_t base_addr, int word_count)
+int emdas_import_word(struct emdas *emd, uint16_t addr, uint16_t word)
 {
-	struct emdas_cell *cells = calloc(word_count, sizeof(struct emdas_cell));
-	if (!cells) {
-		return NULL;
+	const struct opdef *o = emdas_get_op(word);
+
+	assert(o);
+
+	struct emdas_cell *cell = emd->cells + addr;
+	struct emdas_cell *next_cell = emd->cells + (uint16_t)(addr+1);
+
+	// is this an instruction?
+	if ((o->op_id > OP_NONE) && (o->op_id < OP_MAX)) {
+		emdas_fill_ins(cell, o, addr, word);
+		// check if instruction needs another cell for normal argument
+		if (FMATCH(cell->flags, FL_ARG_NORM | FL_2WORD)) {
+			cell->arg_16 = next_cell;
+		}
+	// treat as data
+	} else {
+		emdas_fill_data(cell, addr, word);
 	}
 
-	int word;
-	struct emdas_cell *cell = cells;
-	struct emdas_cell *missing_arg = NULL;
+	return 1;
+}
 
-	emd->base_addr = base_addr;
+// -----------------------------------------------------------------------
+int emdas_import_tab(struct emdas *emd, uint16_t addr, int size, uint16_t *data)
+{
+	int offset;
 
-	for (int offset=0 ; offset<word_count ; offset++, cell++) {
+	for (offset=0 ; offset<size ; offset++) {
+		emdas_import_word(emd, addr+offset, data[offset]);
+	}
 
-		word = emd->get_word(emd->base_addr+offset);
+	return offset;
+}
 
-		if (word < 0) { // could not fetch word
-			emdas_cell_fill(cell, CELL_NA, emd->base_addr+offset, 0);
-		} else if (missing_arg) { // previous cell was missing an argument, fill it now
-			emdas_cell_fill(cell, CELL_ARG, emd->base_addr+offset, word);
-			missing_arg->arg_16 = cell;
-			missing_arg->len += 1;
-			missing_arg = NULL;
-		} else { // fill current cell, try as instruction
-			if (emdas_cell_fill(cell, CELL_INS, emd->base_addr+offset, word) < 0) {
-				missing_arg = cell;
+// -----------------------------------------------------------------------
+int emdas_import_stream(struct emdas *emd, uint16_t addr, int size, FILE *stream)
+{
+	int read_size = -1;
+
+	uint16_t *data = malloc(size * sizeof(uint16_t));
+	if (!data) {
+		goto cleanup;
+	}
+
+	read_size = fread(data, sizeof(uint16_t), size, stream);
+	if (read_size < 0) {
+		goto cleanup;
+	}
+
+	for (int offset=0 ; offset<read_size ; offset++) {
+		emdas_import_word(emd, addr+offset, ntohs(data[offset]));
+	}
+
+cleanup:
+	free(data);
+	return read_size;
+}
+/*
+// -----------------------------------------------------------------------
+int emdas_analyze(struct emdas *emd)
+{
+	struct emdas_cell *cell = emd->cells;
+
+	if (!cell) {
+		return -1;
+	}
+
+	for (int offset=0 ; offset<emd->size ; offset++, cell++) {
+
+		// correction for I/O address arguments
+		if (FMATCH(cell->flags, FL_INS_IO)) {
+			emdas_update_type(emd, offset+2, CELL_DATA);
+			emdas_update_type(emd, offset+3, CELL_DATA);
+			emdas_update_type(emd, offset+4, CELL_DATA);
+			if (FMATCH(cell->flags, FL_2WORD)) {
+				emdas_update_type(emd, offset+5, CELL_DATA);
+			} else {
+				emdas_update_type(emd, offset+1, CELL_DATA);
+			}
+
+		// correction for long and fp address arguments
+		} else if (cell->arg_16
+			&& FMATCH(cell->flags, FL_ARG_NORM | FL_2WORD)
+			&& FNONE(cell->flags, FL_MOD_B | FL_MOD_D | FL_PREMOD)
+		) {
+			if (FMATCH(cell->flags, FL_ARG_A_DWORD)) {
+				emdas_update_type(emd, cell->arg_16->v, CELL_DATA);
+				emdas_update_type(emd, cell->arg_16->v+1, CELL_DATA);
+			} else if (FMATCH(cell->flags, FL_ARG_A_FLOAT)) {
+				emdas_update_type(emd, cell->arg_16->v, CELL_DATA);
+				emdas_update_type(emd, cell->arg_16->v+1, CELL_DATA);
+				emdas_update_type(emd, cell->arg_16->v+2, CELL_DATA);
 			}
 		}
 	}
-
-	return cells;
+	return 0;
 }
-
+*/
 // -----------------------------------------------------------------------
-void emdas_analyze(struct emdas *emd, struct emdas_cell *cells, int cell_count)
-{
-
-}
-
-// -----------------------------------------------------------------------
-static int emdas_normarg_format(struct emdas *emd, char *buf, int maxlen, struct emdas_cell *cell, int use_name)
+static int emdas_normarg_format(char *buf, int maxlen, char **elem_format, struct emdas_cell *cell, int use_name)
 {
 	int pos = 0;
 
 	// D-modification is present
-	if ((cell->arg_flags & ARG_MOD_D)) {
+	if (FMATCH(cell->flags, FL_MOD_D)) {
 		pos += snprintf(buf+pos, maxlen-pos, "[");
 	}
 
-	// no 2nd word needed
-	if (!(cell->arg_flags & ARG_2WORD)) {
-		pos += snprintf(buf+pos, maxlen-pos, emd->emdas_elem_format[SYN_ELEM_REG], cell->rc);
-		if ((cell->arg_flags & ARG_MOD_B)) {
-			pos += snprintf(buf+pos, maxlen-pos, "+");
-			pos += snprintf(buf+pos, maxlen-pos, emd->emdas_elem_format[SYN_ELEM_REG], cell->rb);
-		}
-	// 16-bit arg in 2nd word
+	// rC != 0, print it
+	if (FNONE(cell->flags, FL_2WORD)) {
+		pos += snprintf(buf+pos, maxlen-pos, elem_format[SYN_ELEM_REG], _C(cell->v));
+	// rC == 0, value in 2nd arg
 	} else {
-		// B-modification is present
-		if ((cell->arg_flags & ARG_MOD_B)) {
-			pos += snprintf(buf+pos, maxlen-pos, emd->emdas_elem_format[SYN_ELEM_REG], cell->rb);
-			if (use_name && cell->arg_name) {
-				pos += snprintf(buf+pos, maxlen-pos, "+%s", cell->arg_name);
-			} else if (!cell->arg_16) {
-				pos += snprintf(buf+pos, maxlen-pos, "+???");
-			} else {
-				pos += snprintf(buf+pos, maxlen-pos, "+");
-				pos += snprintf(buf+pos, maxlen-pos, emd->emdas_elem_format[SYN_ELEM_ARG_16], cell->arg_16->v);
-			}
-		// no B-modification
+		// TODO: handle arg split from op by label on arg
+		if (use_name && cell->arg_name) {
+			pos += snprintf(buf+pos, maxlen-pos, "%s", cell->arg_name);
+		} else if (!cell->arg_16) {
+			pos += snprintf(buf+pos, maxlen-pos, "???");
 		} else {
-			if (use_name && cell->arg_name) {
-				pos += snprintf(buf+pos, maxlen-pos, "%s", cell->arg_name);
-			} else if (!cell->arg_16) {
-				pos += snprintf(buf+pos, maxlen-pos, "???");
+			if (cell->arg_16->v == 0) {
+				pos += snprintf(buf+pos, maxlen-pos, "0");
 			} else {
-				pos += snprintf(buf+pos, maxlen-pos, emd->emdas_elem_format[SYN_ELEM_ARG_16], cell->arg_16->v);
+				pos += snprintf(buf+pos, maxlen-pos, elem_format[SYN_ELEM_ARG_16], cell->arg_16->v);
 			}
 		}
 	}
 
+	// rB is present, B-modification
+	if (FMATCH(cell->flags, FL_MOD_B)) {
+		pos += snprintf(buf+pos, maxlen-pos, "+");
+		pos += snprintf(buf+pos, maxlen-pos, elem_format[SYN_ELEM_REG], _B(cell->v));
+	}
+
 	// D-modification is present
-	if ((cell->arg_flags & ARG_MOD_D)) {
+	if (FMATCH(cell->flags, FL_MOD_D)) {
 		pos += snprintf(buf+pos, maxlen-pos, "]");
 	}
 
@@ -305,141 +418,163 @@ static int emdas_normarg_format(struct emdas *emd, char *buf, int maxlen, struct
 }
 
 // -----------------------------------------------------------------------
-static char * emdas_format(struct emdas *emd, int format, struct emdas_cell *cell)
+static int emdas_format(char *buf, int buf_len, char **elem_format, const char *instr_format, struct emdas_cell *cell)
 {
-	char *fmt = (char *) emdas_ins_format[format];
-	char *bret;
 	char *bcur;
-	int bpos = 0;
+	int pos = 0;
 	int bmax;
 	int esc = 0;
 
-	while (fmt && *fmt) {
-		bmax = EMDAS_LINE_MAX-bpos;
-		bcur = (emd->buf)+bpos;
+	while (instr_format && *instr_format) {
+		bmax = buf_len-pos;
+		bcur = buf+pos;
 		if (esc) { // processing esc seq
-			switch (*fmt) {
+			switch (*instr_format) {
 				case '%': // literal %
-					bpos += snprintf(bcur, bmax, "%%");
+					pos += snprintf(bcur, bmax, "%%");
 					break;
 				case 'm': // mnemonic
-					bpos += snprintf(bcur, bmax, emd->emdas_elem_format[SYN_ELEM_MNEMO], emdas_ilist[cell->op_id]);
+					pos += snprintf(bcur, bmax, elem_format[SYN_ELEM_MNEMO], emdas_ilist[cell->op_id]);
 					break;
 				case 'r': // register A
-					bpos += snprintf(bcur, bmax, emd->emdas_elem_format[SYN_ELEM_REG], cell->ra);
+					pos += snprintf(bcur, bmax, elem_format[SYN_ELEM_REG], _A(cell->v));
 					break;
 				case 't': // short argument (7-bit) (using label name, if available)
 					if (cell->arg_name) {
-						bpos += snprintf(bcur, bmax, "%s", cell->arg_name);
+						pos += snprintf(bcur, bmax, "%s", cell->arg_name);
 					} else {
-						bpos += snprintf(bcur, bmax, emd->emdas_elem_format[SYN_ELEM_ARG_7], cell->arg_short);
+						pos += snprintf(bcur, bmax, elem_format[SYN_ELEM_ARG_7], cell->arg_short);
 					}
 					break;
 				case 'T': // short argument (7-bit) (numeric)
-					bpos += snprintf(bcur, bmax, emd->emdas_elem_format[SYN_ELEM_ARG_7], cell->arg_short);
+					pos += snprintf(bcur, bmax, elem_format[SYN_ELEM_ARG_7], cell->arg_short);
 					break;
 				case 'v': // very short argument (4-bit, SHC only)
-					bpos += snprintf(bcur, bmax, emd->emdas_elem_format[SYN_ELEM_ARG_4], cell->arg_short);
+					pos += snprintf(bcur, bmax, elem_format[SYN_ELEM_ARG_4], cell->arg_short);
 					break;
 				case 'B': // byte argument (8-bit)
-					bpos += snprintf(bcur, bmax, emd->emdas_elem_format[SYN_ELEM_ARG_8], cell->arg_short);
+					pos += snprintf(bcur, bmax, elem_format[SYN_ELEM_ARG_8], cell->arg_short);
 					break;
 				case 'n': // normal argument (using argument name, if available)
-					bpos += emdas_normarg_format(emd, bcur, bmax, cell, 1);
+					pos += emdas_normarg_format(bcur, bmax, elem_format, cell, 1);
 					break;
 				case 'N': // normal argument (numeric)
-					bpos += emdas_normarg_format(emd, bcur, bmax, cell, 0);
+					pos += emdas_normarg_format(bcur, bmax, elem_format, cell, 0);
 					break;
 				case 'd':
-					bpos += snprintf(bcur, bmax, emd->emdas_elem_format[SYN_ELEM_ARG_16], cell->v);
+					if (cell->v == 0) {
+						pos += snprintf(bcur, bmax, "0");
+					} else {
+						pos += snprintf(bcur, bmax, elem_format[SYN_ELEM_ARG_16], cell->v);
+					}
 					break;
 				default: // print out unknown escape sequence
-					bpos += snprintf(bcur, bmax, "%%%c", *fmt);
+					pos += snprintf(bcur, bmax, "%%%c", *instr_format);
 					break;
 			}
 			esc = 0;
-		} else if (*fmt == '%') { // start esc seq
+		} else if (*instr_format == '%') { // start esc seq
 			esc = 1;
 		} else { // literal
-			bpos += snprintf(bcur, bmax, "%c", *fmt);
+			pos += snprintf(bcur, bmax, "%c", *instr_format);
 		}
-		fmt++;
+		instr_format++;
 	}
 
-	bret = malloc(strlen(emd->buf)+1);
-	if (bret) {
-		memcpy(bret, emd->buf, strlen(emd->buf)+1);
-	}
-	return bret;
+	return pos;
 }
 
 // -----------------------------------------------------------------------
-char * emdas_make_text(struct emdas *emd, struct emdas_cell *cell)
+static char * emdas_make_text(struct emdas_cell *cell, char **elem_format, unsigned features)
 {
-	char *str;
-	int type = cell->type;
-	int arg = cell->arg_flags;
+	char buf[EMDAS_LINE_MAX+1];
+	int pos = 0;
 
-	// cell is data
-	if (type == CELL_DATA) {
-		str = emdas_format(emd, SYN_INS_DATA, cell);
-	// cell is instruction
-	} else if (type == CELL_INS) {
-		if ((arg & ARG_NONE)) {
-			str = emdas_format(emd, SYN_INS__, cell);
-		} else if ((arg & ARG_REG)) {
-			if ((arg & ARG_NORM)) {
-				str = emdas_format(emd, SYN_INS_RN, cell);
-			} else if ((arg & ARG_SHORT7)) {
-				str = emdas_format(emd, SYN_INS_RT, cell);
-			} else if ((arg & ARG_SHORT4)) {
-				str = emdas_format(emd, SYN_INS_RV, cell);
-			} else if ((arg & ARG_SHORT8)) {
-				str = NULL;
+	int flags = cell->flags;
+	int fmt = SYN_INS_DATA; // by default, treat as data
+
+	// address
+	if ((features & FEAT_ADDR)) {
+		pos += snprintf(buf+pos, EMDAS_LINE_MAX-pos, elem_format[SYN_ELEM_ADDR], cell->addr);
+	}
+
+	// label
+	if ((features & FEAT_LABELS)) {
+		if (cell->label) {
+			int len = strlen(cell->label) + 2;
+			char *tlabel = malloc(len);
+			snprintf(tlabel, len, "%s:", cell->label);
+			if (tlabel) {
+				pos += snprintf(buf+pos, EMDAS_LINE_MAX-pos, elem_format[SYN_ELEM_LABEL], tlabel);
 			} else {
-				str = emdas_format(emd, SYN_INS_R, cell);
+				pos += snprintf(buf+pos, EMDAS_LINE_MAX-pos, "%s:", cell->label);
 			}
-		} else if ((arg & ARG_NORM)) {
-			str = emdas_format(emd, SYN_INS_N, cell);
-		} else if ((arg & ARG_SHORT7)) {
-			str = emdas_format(emd, SYN_INS_T, cell);
-		} else if ((arg & ARG_SHORT8)) {
-			str = emdas_format(emd, SYN_INS_B, cell);
+			free(tlabel);
 		} else {
-			str = NULL;
+			pos += snprintf(buf+pos, EMDAS_LINE_MAX-pos, elem_format[SYN_ELEM_LABEL], "");
 		}
-	// cell is unknown, N/A or ARG
-	} else {
-		str = NULL;
+	}
+
+	// instruction/data
+	if (cell->type == CELL_INS) {
+		// no arguments
+		if ((flags & FL_ARG_NONE)) {
+			fmt = SYN_INS__;
+		// register argument is present
+		} else if ((flags & FL_ARG_REG)) {
+			if ((flags & FL_ARG_NORM)) {
+				fmt = SYN_INS_RN;
+			} else if ((flags & FL_ARG_SHORT7)) {
+				fmt = SYN_INS_RT;
+			} else if ((flags & FL_ARG_SHORT4)) {
+				fmt = SYN_INS_RV;
+			} else if ((flags & FL_ARG_SHORT8)) {
+				fmt = SYN_INS_DATA; // impossibru
+			} else {
+				fmt = SYN_INS_R;
+			}
+		// normal argument is present
+		} else if ((flags & FL_ARG_NORM)) {
+			fmt = SYN_INS_N;
+		// short arguments...
+		} else if ((flags & FL_ARG_SHORT7)) {
+			fmt = SYN_INS_T;
+		} else if ((flags & FL_ARG_SHORT8)) {
+			fmt = SYN_INS_B;
+		}
+	}
+
+	pos += emdas_format(buf+pos, EMDAS_LINE_MAX-pos, elem_format, emdas_ins_format[fmt], cell);
+
+	buf[pos] = '\0';
+
+	char *str = malloc(pos+1);
+	if (str) {
+		memcpy(str, buf, pos+1);
 	}
 
 	return str;
 }
 
 // -----------------------------------------------------------------------
-void __emdas_cell_dump(FILE *f, struct emdas *emd, struct emdas_cell *cell)
+int __emdas_dump_cell(FILE *f, struct emdas_cell *cell)
 {
 	static char *cell_type_names[] = {
-		 "UNKNOWN", "N/A", "DATA", "OP", "ARG"
+		 "DATA", "OP", "ARG"
 	};
 	static char *op_group_names[] = {
 		"NONE", "NORM", "FD", "KA1", "JS", "KA2", "C", "S", "J", "L", "G", "BN"
 	};
 
 	fprintf(f, "---------------------------------------------\n");
-	fprintf(f, "Address    : 0x%04x + %i\n", emd->base_addr, cell->offset);
+	fprintf(f, "Address    : %i\n", cell->addr);
 	fprintf(f, "Cell type  : %s\n", cell_type_names[cell->type]);
 	fprintf(f, "Cell label : %s\n", cell->label);
 	fprintf(f, "Cell value : 0x%04x\n", cell->v);
 	fprintf(f, "OP group   : %s\n", op_group_names[cell->op_group]);
-	fprintf(f, "OP flags   : %s%s%s\n",
-		(cell->op_flags & OP_FL_OS) ? "OS, " : "",
-		(cell->op_flags & OP_FL_IO) ? "IO, " : "",
-		(cell->op_flags & OP_FL_MX16) ? "MX16, " : ""
-	);
 	fprintf(f, "OP ID      : %i\n", cell->op_id);
 	fprintf(f, "Mnemo      : %s\n", emdas_ilist[cell->op_id]);
-	fprintf(f, "Registers  : rA = %i, rB = %i, rC = %i\n", cell->ra, cell->rb, cell->rc);
+	fprintf(f, "Registers  : rA = %i, rB = %i, rC = %i\n", _A(cell->v), _B(cell->v), _C(cell->v));
 	fprintf(f, "Arg. name  : %s\n", cell->arg_name);
 	fprintf(f, "Arg. short : %i\n", cell->arg_short);
 	if (cell->arg_16) {
@@ -447,27 +582,34 @@ void __emdas_cell_dump(FILE *f, struct emdas *emd, struct emdas_cell *cell)
 	} else {
 		fprintf(f, "Arg. 16    : NULL\n");
 	}
-	fprintf(f, "Arg flags  : %s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s\n",
-		(cell->arg_flags & ARG_NONE) ? "NONE, " : "",
-		(cell->arg_flags & ARG_REG) ? "REG, " : "",
-		(cell->arg_flags & ARG_REGIND) ? "REGIND, " : "",
-		(cell->arg_flags & ARG_SHORT4) ? "SHORT4, " : "",
-		(cell->arg_flags & ARG_SHORT7) ? "SHORT7, " : "",
-		(cell->arg_flags & ARG_SHORT8) ? "SHORT8, " : "",
-		(cell->arg_flags & ARG_RELATIVE) ? "RELATIVE, " : "",
-		(cell->arg_flags & ARG_NORM) ? "NORM, " : "",
-		(cell->arg_flags & ARG_A_JUMP) ? "A_JUMP, " : "",
-		(cell->arg_flags & ARG_A_BYTE) ? "A_BYTE, " : "",
-		(cell->arg_flags & ARG_A_WORD) ? "A_WORD, " : "",
-		(cell->arg_flags & ARG_A_DWORD) ? "A_DWORD, " : "",
-		(cell->arg_flags & ARG_A_FLOAT) ? "A_FLOAT, " : "",
-		(cell->arg_flags & ARG_2WORD) ? "2WORD, " : "",
-		(cell->arg_flags & ARG_MOD_D) ? "MOD_D, " : "",
-		(cell->arg_flags & ARG_MOD_B) ? "MOD_B, " : ""
+	fprintf(f, "Flags      : %s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s\n",
+		(cell->flags & FL_INS_OS) ? "OS, " : "",
+		(cell->flags & FL_INS_IO) ? "IO, " : "",
+		(cell->flags & FL_INS_MX16) ? "MX16, " : "",
+
+		(cell->flags & FL_ARG_NONE) ? "NONE, " : "",
+		(cell->flags & FL_ARG_REG) ? "REG, " : "",
+		(cell->flags & FL_ARG_REGIND) ? "REGIND, " : "",
+		(cell->flags & FL_ARG_SHORT4) ? "SHORT4, " : "",
+		(cell->flags & FL_ARG_SHORT7) ? "SHORT7, " : "",
+		(cell->flags & FL_ARG_SHORT8) ? "SHORT8, " : "",
+		(cell->flags & FL_ARG_RELATIVE) ? "RELATIVE, " : "",
+		(cell->flags & FL_ARG_NORM) ? "NORM, " : "",
+
+		(cell->flags & FL_2WORD) ? "2WORD, " : "",
+		(cell->flags & FL_MOD_D) ? "MOD_D, " : "",
+		(cell->flags & FL_MOD_B) ? "MOD_B, " : "",
+		(cell->flags & FL_PREMOD) ? "PREMOD, " : "",
+
+		(cell->flags & FL_ARG_A_JUMP) ? "A_JUMP, " : "",
+		(cell->flags & FL_ARG_A_BYTE) ? "A_BYTE, " : "",
+		(cell->flags & FL_ARG_A_WORD) ? "A_WORD, " : "",
+		(cell->flags & FL_ARG_A_DWORD) ? "A_DWORD, " : "",
+		(cell->flags & FL_ARG_A_FLOAT) ? "A_FLOAT, " : ""
 	);
-	char *d = emdas_make_text(emd, cell);
-	fprintf(f, "Disassm    : %s\n", d);
-	free(d);
+	fprintf(f, "Disassm    : %s\n", cell->text);
+
+	return 0;
 }
 
 

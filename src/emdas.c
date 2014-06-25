@@ -20,16 +20,14 @@
 #include <getopt.h>
 #include <string.h>
 
-#include "image.h"
-#include "analyze.h"
+#include "emdas.h"
 
-struct cell *pimage;
 int isize;
 
 char *input_file;
 char *output_file;
 
-int skip_labels;
+int skip_labels, skip_addresses, skip_values;
 int base_addr;
 
 // -----------------------------------------------------------------------
@@ -91,11 +89,51 @@ int parse_args(int argc, char **argv)
 }
 
 // -----------------------------------------------------------------------
+int write_asm(FILE *f, struct emdas *emd, uint16_t base_addr, uint16_t size)
+{
+	int res;
+	int bytes = 0;
+	struct emdas_cell *cell;
+	const int bsize = 1024;
+	char buf[bsize];
+	int pos;
+
+	for (int addr=base_addr ; addr<base_addr+size ; addr++, pos=0) {
+		cell = emdas_get_cell(emd, addr);
+		//__emdas_dump_cell(stdout, cell);
+
+		// instruction
+		pos += snprintf(buf+pos, bsize-pos, "%-60s", cell->text);
+
+		// comment
+		if ((!skip_values) && ((cell->type != CELL_DATA) || (cell->arg_name))) {
+			if ((cell->flags & FL_2WORD)) {
+				pos += snprintf(buf+pos, bsize-pos, " ; .word 0x%04x, 0x%04x", cell->v, cell->arg_16->v);
+			} else {
+				pos += snprintf(buf+pos, bsize-pos, " ; .word 0x%04x", cell->v);
+			}
+		}
+
+		// newline
+		pos += snprintf(buf+pos, bsize-pos, "\n");
+
+		res = fwrite(buf, 1, pos, f);
+		if (res < 0) {
+			return res;
+		}
+		bytes += res;
+	}
+
+	return bytes;
+}
+
+// -----------------------------------------------------------------------
 int main(int argc, char **argv)
 {
 	FILE *f;
 	int res;
 	int ret = -1;
+	struct emdas *emd = NULL;
 
 	res = parse_args(argc, argv);
 	if (res) {
@@ -110,20 +148,20 @@ int main(int argc, char **argv)
 		goto cleanup;
 	}
 
-	res = read_image(f, &pimage, base_addr);
-	if (res < 0) {
+	emd = emdas_init();
+	emdas_enable_features(emd, FEAT_ALL);
+	if (!emd) {
+		printf("Cannot setup disassembler.\n");
+		goto cleanup;
+	}
+
+	isize = emdas_import_stream(emd, base_addr, 65536-base_addr, f);
+	if (isize < 0) {
 		printf("Cannot read input file '%s'.\n", input_file);
 		fclose(f);
 		goto cleanup;
 	}
-
 	fclose(f);
-
-	isize = res;
-
-	an_code(pimage, base_addr, isize);
-	an_args(pimage, base_addr, isize);
-	if (!skip_labels) an_labels(pimage, base_addr, isize);
 
 	if (output_file) {
 		f = fopen(output_file, "w");
@@ -136,22 +174,18 @@ int main(int argc, char **argv)
 		goto cleanup;
 	}
 
-	res = write_asm(pimage, base_addr, isize, f);
-	if (res) {
+	res = write_asm(f, emd, base_addr, isize);
+	if (res < 0) {
 		printf("Cannot write disassembled source: '%s'.\n", output_file);
 		fclose(f);
 		goto cleanup;
 	}
-
 	fclose(f);
 
 	ret = 0;
 
 cleanup:
-	for (int i=0 ; i<isize ; i++) {
-		free(pimage[i].label);
-	}
-	free(pimage);
+	emdas_shutdown(emd);
 	free(output_file);
 	return ret;
 }

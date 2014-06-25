@@ -39,8 +39,7 @@ struct opdef {
 	int op_id;
 	int group_id;
 	opfun extop_fun;
-	unsigned arg_flags;
-	unsigned op_flags;
+	unsigned flags;
 };
 
 const struct opdef * emdas_get_op(uint16_t opcode);

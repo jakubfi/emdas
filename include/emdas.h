@@ -20,8 +20,9 @@
 
 #include <inttypes.h>
 #include <stdio.h>
+#include <limits.h>
 
-#define EMDAS_LINE_MAX 4 * 1024
+#define EMDAS_LINE_MAX 1024
 
 // opcode identifiers (also act as indexes for opcode names)
 
@@ -50,17 +51,15 @@ enum emdas_op_ids {
 // cell types
 
 enum emdas_cell_types {
-	CELL_UNKNOWN	= 0, // cell hasn't been processed yet, all cell data is invalid
-	CELL_NA			= 1, // cell could not be processed (address not available)
-	CELL_DATA		= 2, // cell does not match any opcode (likely data)
-	CELL_INS			= 3, // cell matches an opcode (likely instruction)
-	CELL_ARG		= 4, // cell contains additional instruction argument
+	CELL_DATA,	// cell does not match any opcode (likely data)
+	CELL_INS,	// cell matches an opcode (likely instruction)
+	CELL_ARG,	// cell contains additional instruction argument
 };
 
 // opcode groups
 
 enum emdas_op_groups {
-	OP_GR_NONE = 0,	// unknown group
+	OP_GR_NONE, // unknown group
 	OP_GR_NORM,
 	OP_GR_FD,
 	OP_GR_KA1,
@@ -74,92 +73,118 @@ enum emdas_op_groups {
 	OP_GR_BN,
 };
 
-// convenient opcode flags highlighting cases that may require additional treatment
+// cell flags
 
-enum emdas_op_flags {
-	OP_FL_NONE		= 0,		// not an instruction or nothing special
-	OP_FL_OS		= 1 << 1,	// instruction is user-illegal (OS level only)
-	OP_FL_IO		= 1 << 2,	// I/O instruction
-	OP_FL_MX16		= 1 << 3,	// additional MX-16 instruction
-};
+enum emdas_flags {
+	FL_NONE			= 0,
 
-// instruction arguments description
+	// instruction flags
+	FL_INS_OS		= 1 << 0,	// instruction is user-illegal (OS level only)
+	FL_INS_IO		= 1 << 1,	// I/O instruction
+	FL_INS_MX16		= 1 << 2,	// additional MX-16 instruction
 
-enum emdas_arg_flags {
-	ARG_UNKNOWN		= 0,		// cell is not a known instruction
-	ARG_NONE		= 1 << 0,	// no arguments
-	ARG_REG			= 1 << 1,	// rA register argument is present
-	ARG_REGIND		= 1 << 2,	// rA register indirect addressing
-	ARG_SHORT4		= 1 << 2,	// 4-bit short argument is present (SHC only)
-	ARG_SHORT7		= 1 << 3,	// 7-bit short argument is present
-	ARG_SHORT8		= 1 << 4,	// byte argument is present
-	ARG_RELATIVE	= 1 << 5,	// short argument is PC-relative
-	ARG_NORM		= 1 << 6,	// normal argument is present
-	ARG_A_JUMP		= 1 << 7,	// argument is a jump address
-	ARG_A_BYTE		= 1 << 8,	// argument is a byte address
-	ARG_A_WORD		= 1 << 9,	// argument is a word address
-	ARG_A_DWORD		= 1 << 10,	// argument is a dword address
-	ARG_A_FLOAT		= 1 << 11,	// argument is a float address
-// filled at runtime:
-	ARG_2WORD		= 1 << 12,	// normal argument uses additional word (rC=0)
-	ARG_MOD_D		= 1 << 13,	// normal argument is D-modified
-	ARG_MOD_B		= 1 << 14,	// normal argument is B-modified
+	// argument flags
+	FL_ARG_NONE		= 1 << 3,	// no arguments
+	FL_ARG_REG		= 1 << 4,	// rA register argument is present
+	FL_ARG_REGIND	= 1 << 5,	// rA register indirect addressing
+	FL_ARG_SHORT4	= 1 << 6,	// 4-bit short argument is present (SHC only)
+	FL_ARG_SHORT7	= 1 << 7,	// 7-bit short argument is present
+	FL_ARG_SHORT8	= 1 << 8,	// byte argument is present
+	FL_ARG_RELATIVE	= 1 << 9,	// short argument is PC-relative
+	FL_ARG_NORM		= 1 << 10,	// normal argument is present
+
+	// normarg flags
+	FL_2WORD		= 1 << 11,	// normal argument uses additional word (rC=0)
+	FL_MOD_D		= 1 << 12,	// normal argument is D-modified
+	FL_MOD_B		= 1 << 13,	// normal argument is B-modified
+	FL_PREMOD		= 1 << 14,	// instruction is premodified
+
+	// normarg address flags
+	FL_ARG_A_JUMP	= 1 << 15,	// argument is a jump address
+	FL_ARG_A_BYTE	= 1 << 16,	// argument is a byte address
+	FL_ARG_A_WORD	= 1 << 17,	// argument is a word address
+	FL_ARG_A_DWORD	= 1 << 18,	// argument is a dword address
+	FL_ARG_A_FLOAT	= 1 << 19,	// argument is a float address
+
 };
 
 // convenience macros:
 
-#define ARG_SHORT (ARG_SHORT4 | ARG_SHORT7 | ARG_SHORT8)
-#define ARG_ADDR (ARG_A_JUMP | ARG_A_BYTE | ARG_A_WORD | ARG_A_DWORD | ARG_A_FLOAT)
-#define ARG_IMM (ARG_SHORT4 | ARG_SHORT7 | ARG_SHORT8 | ARG_2WORD)
+#define FL_ARG_SHORT (FL_ARG_SHORT4 | FL_ARG_SHORT7 | FL_ARG_SHORT8)
+#define FL_ARG_IMMEDIATE (FL_ARG_SHORT | FL_ARG_2WORD)
+#define FL_ARG_INDIRECT (FL_ARG_A_BYTE | FL_ARG_A_WORD | FL_ARG_A_DWORD | FL_ARG_A_FLOAT)
 
 // syntax elements identifiers
 
 enum emdas_syn_elem {
-	SYN_ELEM_MNEMO = 0,
+	SYN_ELEM_MNEMO,
 	SYN_ELEM_REG,
 	SYN_ELEM_ARG_7,
 	SYN_ELEM_ARG_4,
 	SYN_ELEM_ARG_8,
 	SYN_ELEM_ARG_16,
+	SYN_ELEM_ADDR,
+	SYN_ELEM_LABEL,
 	SYN_ELEM_MAX
 };
 
+// emdas features
+
+enum emdas_features {
+	FEAT_NONE	= 0,
+	FEAT_ADDR	= 1 << 0,
+	FEAT_LABELS	= 1 << 1,
+	FEAT_ALL	= UINT_MAX
+};
+
 struct emdas_cell {
-	uint16_t offset;
+	uint16_t addr;
 	uint16_t v;
-	int type;
-	int len;
+	uint8_t type;
 
-	int ra, rb, rc;
-
-	int op_id;
-	int op_group;
-	unsigned op_flags;
-	unsigned arg_flags;
+	uint8_t op_id;
+	uint8_t op_group;
+	unsigned flags;
 
 	int arg_short;
 	struct emdas_cell *arg_16;
 	char *arg_name;
 
 	char *label;
+	int syn_generation;
+	char *text;
 };
 
-typedef int (*get_word_f)(uint16_t addr);
+typedef int (*emdas_getfun)(uint16_t addr);
 
 struct emdas {
-	get_word_f get_word;
-	char *emdas_elem_format[SYN_ELEM_MAX];
-	char buf[EMDAS_LINE_MAX+1];
-	int base_addr;
+	struct emdas_cell cells[64*1024];
+	unsigned features;
+	int syn_generation;
+	char *elem_format[SYN_ELEM_MAX];
 };
 
-struct emdas * emdas_init(get_word_f get_word);
+struct emdas * emdas_init();
 void emdas_shutdown(struct emdas *emd);
 
-struct emdas_cell * emdas_dasm(struct emdas *emd, uint16_t base_addr, int word_count);
-void __emdas_cell_dump(FILE *f, struct emdas *emd, struct emdas_cell *cell);
-char * emdas_make_text(struct emdas *emd, struct emdas_cell *cell);
-void emdas_analyze(struct emdas *emd, struct emdas_cell *cells, int cell_count);
+int emdas_set_syntax(struct emdas *emd, int syn_id, const char *syn);
+int emdas_reset_syntax(struct emdas *emd);
+
+void emdas_enable_features(struct emdas *emd, unsigned features);
+void emdas_disable_features(struct emdas *emd, unsigned features);
+void emdas_set_features(struct emdas *emd, unsigned features);
+
+int emdas_import_word(struct emdas *emd, uint16_t addr, uint16_t word);
+int emdas_import_tab(struct emdas *emd, uint16_t addr, int size, uint16_t *tab);
+int emdas_import_stream(struct emdas *emd, uint16_t addr, int size, FILE *stream);
+int emdas_import_getfun(struct emdas *emd, uint16_t addr, int size, emdas_getfun getfun);
+
+int emdas_update_type(struct emdas *emd, uint16_t addr, int type);
+int emdas_update_val(struct emdas *emd, uint16_t addr, uint16_t v);
+
+int emdas_analyze(struct emdas *emd);
+struct emdas_cell * emdas_get_cell(struct emdas *emd, uint16_t addr);
+int __emdas_dump_cell(FILE *f, struct emdas_cell *cell);
 
 
 #endif
