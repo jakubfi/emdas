@@ -21,6 +21,7 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include <limits.h>
+#include <emelf.h>
 
 #define EMDAS_LINE_MAX 1024
 
@@ -177,6 +178,7 @@ void emdas_set_features(struct emdas *emd, unsigned features);
 int emdas_import_word(struct emdas *emd, uint16_t addr, uint16_t word);
 int emdas_import_tab(struct emdas *emd, uint16_t addr, int size, uint16_t *tab);
 int emdas_import_stream(struct emdas *emd, uint16_t addr, int size, FILE *stream);
+int emdas_import_emelf(struct emdas *emd, uint16_t addr, int size, struct emelf *e);
 int emdas_import_getfun(struct emdas *emd, uint16_t addr, int size, emdas_getfun getfun);
 
 int emdas_update_type(struct emdas *emd, uint16_t addr, int type);

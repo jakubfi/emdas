@@ -19,6 +19,6 @@ add_executable(emdas
 	emdas.c
 )
 
-target_link_libraries(emdas emdas-lib)
+target_link_libraries(emdas emdas-lib emelf)
 
 # vim: tabstop=4

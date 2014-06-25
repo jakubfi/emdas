@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <getopt.h>
 #include <string.h>
+#include <emelf.h>
 
 #include "emdas.h"
 
@@ -134,6 +135,7 @@ int main(int argc, char **argv)
 	int res;
 	int ret = -1;
 	struct emdas *emd = NULL;
+	struct emelf *e = NULL;
 
 	res = parse_args(argc, argv);
 	if (res) {
@@ -155,7 +157,17 @@ int main(int argc, char **argv)
 		goto cleanup;
 	}
 
-	isize = emdas_import_stream(emd, base_addr, 65536-base_addr, f);
+	// try as emelf
+	e = emelf_load(f);
+
+	if (e) {
+		isize = emdas_import_tab(emd, base_addr, e->image_size, e->image);
+		emelf_destroy(e);
+	} else {
+		rewind(f);
+		isize = emdas_import_stream(emd, base_addr, 65536-base_addr, f);
+	}
+
 	if (isize < 0) {
 		printf("Cannot read input file '%s'.\n", input_file);
 		fclose(f);
