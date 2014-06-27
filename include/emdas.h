@@ -135,8 +135,12 @@ enum emdas_features {
 	FEAT_NONE	= 0,
 	FEAT_ADDR	= 1 << 0,
 	FEAT_LABELS	= 1 << 1,
-	FEAT_ALL	= UINT_MAX
+	FEAT_UCASE	= 1 << 2,
 };
+
+// convenience feature macros
+#define FEAT_SYN (FEAT_ADDR | FEAT_LABELS | FEAT_UCASE)
+#define FEAT_ALL (FEAT_SYN)
 
 struct emdas_cell {
 	uint16_t addr;
@@ -168,26 +172,19 @@ struct emdas {
 struct emdas * emdas_init();
 void emdas_shutdown(struct emdas *emd);
 
-int emdas_set_syntax(struct emdas *emd, int syn_id, const char *syn);
+int emdas_set_syntax(struct emdas *emd, unsigned syn_id, const char *syn);
 int emdas_reset_syntax(struct emdas *emd);
 
-void emdas_enable_features(struct emdas *emd, unsigned features);
-void emdas_disable_features(struct emdas *emd, unsigned features);
-void emdas_set_features(struct emdas *emd, unsigned features);
+unsigned emdas_get_features(struct emdas *emd);
+int emdas_set_features(struct emdas *emd, unsigned features);
 
 int emdas_import_word(struct emdas *emd, uint16_t addr, uint16_t word);
 int emdas_import_tab(struct emdas *emd, uint16_t addr, int size, uint16_t *tab);
 int emdas_import_stream(struct emdas *emd, uint16_t addr, int size, FILE *stream);
 int emdas_import_emelf(struct emdas *emd, uint16_t addr, int size, struct emelf *e);
-int emdas_import_getfun(struct emdas *emd, uint16_t addr, int size, emdas_getfun getfun);
 
-int emdas_update_type(struct emdas *emd, uint16_t addr, int type);
-int emdas_update_val(struct emdas *emd, uint16_t addr, uint16_t v);
-
-int emdas_analyze(struct emdas *emd);
 struct emdas_cell * emdas_get_cell(struct emdas *emd, uint16_t addr);
 int __emdas_dump_cell(FILE *f, struct emdas_cell *cell);
-
 
 #endif
 

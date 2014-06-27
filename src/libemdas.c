@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 #include <inttypes.h>
 #include <assert.h>
 #include <limits.h>
@@ -30,7 +31,7 @@
 #define  FNONE(v, flags) (((v) & (flags)) == 0)
 #define FMATCH(v, flags) (((v) & (flags)) == (flags))
 
-static const char *emdas_ilist[] = {
+static char *emdas_ilist_lcase[OP_MAX] = {
 			".word",
 /* NORM */	"lw", "tw", "ls", "ri", "rw", "pw", "rj", "is",
 			"bb", "bm", "bs", "bc", "bn", "ou", "in",
@@ -50,6 +51,29 @@ static const char *emdas_ilist[] = {
 /* G */		"rd", "rf", "ra", "rl", "pd", "pf", "pa", "pl",
 /* B/N */	"mb", "im", "ki", "fi", "sp", "md", "rz", "ib"
 };
+
+static char *emdas_ilist_ucase[OP_MAX] = {
+			".word",
+/* NORM */	"LW", "TW", "LS", "RI", "RW", "PW", "RJ", "IS",
+			"BB", "BM", "BS", "BC", "BN", "OU", "IN",
+/* F/D */	"AD", "SD", "MW", "DW", "AF", "SF", "MF", "DF",
+/* NORM */	"AW", "AC", "SW", "CW", "OR", "OM", "NR", "NM",
+			"ER", "EM", "XR", "XM", "CL", "LB", "RB", "CB",
+/* KA1 */	"AWT", "TRB", "IRB", "DRB", "CWT", "LWT", "LWS", "RWS",
+/* JS */	"UJS", "NOP", "JLS", "JES", "JGS", "JVS", "JXS", "JYS", "JCS",
+/* KA2 */	"BLC", "EXL", "BRC", "NRF",
+/* C */		"RIC", "ZLB", "SXU", "NGA", "SLZ", "SLY", "SLX", "SRY", "NGL", "RPC",
+			"SHC",
+			"RKY", "ZRB", "SXL", "NGC", "SVZ", "SVY", "SVX", "SRX", "SRZ", "LPC",
+/* S */		"HLT", "MCL", "CIT", "SIL", "SIU", "SIT", "GIU", "LIP", "GIL",
+			"CRON", "SINT", "SIND",
+/* J */		"UJ", "JL", "JE", "JG", "JZ", "JM", "JN", "LJ",
+/* L */		"LD", "LF", "LA", "LL", "TD", "TF", "TA", "TL",
+/* G */		"RD", "RF", "RA", "RL", "PD", "PF", "PA", "PL",
+/* B/N */	"MB", "IM", "KI", "FI", "SP", "MD", "RZ", "IB"
+};
+
+static char **emdas_ilist = emdas_ilist_lcase;
 
 // Default element formats (those can be changed by the user)
 
@@ -146,11 +170,10 @@ void emdas_shutdown(struct emdas *emd)
 }
 
 // -----------------------------------------------------------------------
-int emdas_set_syntax(struct emdas *emd, int syn_id, const char *syn)
+int emdas_set_syntax(struct emdas *emd, unsigned syn_id, const char *syn)
 {
-	if ((syn_id < 0) || (syn_id >= SYN_ELEM_MAX)) {
-		return -1;
-	}
+	if (!emd) return -1;
+	if (syn_id >= SYN_ELEM_MAX) return -1;
 
 	free(emd->elem_format[syn_id]);
 
@@ -169,6 +192,8 @@ int emdas_set_syntax(struct emdas *emd, int syn_id, const char *syn)
 // -----------------------------------------------------------------------
 int emdas_reset_syntax(struct emdas *emd)
 {
+	if (!emd) return -1;
+
 	for (int i=0 ; i<SYN_ELEM_MAX ; i++) {
 		if (emdas_set_syntax(emd, i, emdas_default_elem_format[i])) {
 			return -1;
@@ -178,26 +203,39 @@ int emdas_reset_syntax(struct emdas *emd)
 }
 
 // -----------------------------------------------------------------------
-void emdas_enable_features(struct emdas *emd, unsigned features)
+unsigned emdas_get_features(struct emdas *emd)
 {
-	emd->features |= features;
+	return emd->features;
 }
 
 // -----------------------------------------------------------------------
-void emdas_disable_features(struct emdas *emd, unsigned features)
+int emdas_set_features(struct emdas *emd, unsigned features)
 {
-	emd->features &= ~features;
-}
+	if (!emd) return -1;
+	if ((features & (~FEAT_ALL))) return -1;
 
-// -----------------------------------------------------------------------
-void emdas_set_features(struct emdas *emd, unsigned features)
-{
+	// bump syn generation if any syntax feature changed
+	if ((features & FEAT_SYN) != (emd->features & FEAT_SYN)) {
+		emd->syn_generation++;
+	}
+
+	// choose instruction set
+	if ((features & FEAT_UCASE)) {
+		emdas_ilist = emdas_ilist_ucase;
+	} else {
+		emdas_ilist = emdas_ilist_lcase;
+	}
+
 	emd->features = features;
+
+	return 0;
 }
 
 // -----------------------------------------------------------------------
 struct emdas_cell * emdas_get_cell(struct emdas *emd, uint16_t addr)
 {
+	if (!emd) return NULL;
+
 	struct emdas_cell *cell = emd->cells + addr;
 
 	// check if we need to (re-)generate text representation
@@ -276,6 +314,8 @@ static int emdas_fill_ins(struct emdas_cell *cell, const struct opdef *o, uint16
 // -----------------------------------------------------------------------
 int emdas_import_word(struct emdas *emd, uint16_t addr, uint16_t word)
 {
+	if (!emd) return -1;
+
 	const struct opdef *o = emdas_get_op(word);
 
 	assert(o);
@@ -301,6 +341,8 @@ int emdas_import_word(struct emdas *emd, uint16_t addr, uint16_t word)
 // -----------------------------------------------------------------------
 int emdas_import_tab(struct emdas *emd, uint16_t addr, int size, uint16_t *data)
 {
+	if (!emd) return -1;
+
 	int offset;
 
 	for (offset=0 ; offset<size ; offset++) {
@@ -313,6 +355,8 @@ int emdas_import_tab(struct emdas *emd, uint16_t addr, int size, uint16_t *data)
 // -----------------------------------------------------------------------
 int emdas_import_stream(struct emdas *emd, uint16_t addr, int size, FILE *stream)
 {
+	if (!emd) return -1;
+
 	int read_size = -1;
 
 	uint16_t *data = malloc(size * sizeof(uint16_t));
@@ -377,6 +421,8 @@ int emdas_analyze(struct emdas *emd)
 // -----------------------------------------------------------------------
 static int emdas_normarg_format(char *buf, int maxlen, char **elem_format, struct emdas_cell *cell, int use_name)
 {
+	assert(buf && elem_format && cell);
+
 	int pos = 0;
 
 	// D-modification is present
@@ -420,6 +466,8 @@ static int emdas_normarg_format(char *buf, int maxlen, char **elem_format, struc
 // -----------------------------------------------------------------------
 static int emdas_format(char *buf, int buf_len, char **elem_format, const char *instr_format, struct emdas_cell *cell)
 {
+	assert(buf && elem_format && instr_format && cell);
+
 	char *bcur;
 	int pos = 0;
 	int bmax;
@@ -487,6 +535,8 @@ static int emdas_format(char *buf, int buf_len, char **elem_format, const char *
 // -----------------------------------------------------------------------
 static char * emdas_make_text(struct emdas_cell *cell, char **elem_format, unsigned features)
 {
+	assert(cell && elem_format);
+
 	char buf[EMDAS_LINE_MAX+1];
 	int pos = 0;
 
@@ -529,7 +579,7 @@ static char * emdas_make_text(struct emdas_cell *cell, char **elem_format, unsig
 			} else if ((flags & FL_ARG_SHORT4)) {
 				fmt = SYN_INS_RV;
 			} else if ((flags & FL_ARG_SHORT8)) {
-				fmt = SYN_INS_DATA; // impossibru
+				assert(fmt != SYN_INS_DATA); // impossibru
 			} else {
 				fmt = SYN_INS_R;
 			}

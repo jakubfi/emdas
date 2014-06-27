@@ -151,7 +151,7 @@ int main(int argc, char **argv)
 	}
 
 	emd = emdas_init();
-	emdas_enable_features(emd, FEAT_ALL);
+	emdas_set_features(emd, FEAT_ALL & ~FEAT_UCASE);
 	if (!emd) {
 		printf("Cannot setup disassembler.\n");
 		goto cleanup;
