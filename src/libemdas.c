@@ -85,7 +85,7 @@ static const char *emdas_default_elem_format[SYN_ELEM_MAX] = {
 	/* SYN_ELEM_ARG_8 */	"%i",
 	/* SYN_ELEM_ARG_16 */	"0x%x",
 	/* SYN_ELEM_ADDR */		"0x%04x: ",
-	/* SYN_ELEM_LABEL */	"%10s ", // auto-includes ':'
+	/* SYN_ELEM_LABEL */	"%17s ", // auto-includes ':'
 };
 
 // Instructions syntax identifiers
@@ -260,7 +260,6 @@ static void emdas_fill_data(struct emdas *emd, uint16_t addr)
 	cell->flags = FL_NONE;
 
 	cell->arg_short = INT_MAX;
-	cell->arg_16 = NULL;
 	cell->arg_name = NULL;
 
 	cell->label = NULL;
@@ -313,6 +312,44 @@ static int emdas_fill_ins(struct emdas *emd, uint16_t addr, const struct opdef *
 }
 
 // -----------------------------------------------------------------------
+int emdas_add_ref(struct emdas *emd, struct emdas_cell *cell, uint16_t dest_addr, unsigned type)
+{
+	// forward
+	struct emdas_ref *ref = malloc(sizeof(struct emdas_ref));
+	if (!ref) return -1;
+	ref->type = type;
+	ref->cell = emd->cells + dest_addr;
+	ref->next = cell->ref;
+	cell->ref = ref;
+
+	// reverse
+	struct emdas_ref *rref = malloc(sizeof(struct emdas_ref));
+	if (!rref) return -1;
+	rref->type = type;
+	rref->cell = cell;
+	rref->next = emd->cells[dest_addr].rref;
+	emd->cells[dest_addr].rref = rref;
+
+	return 0;
+}
+
+// -----------------------------------------------------------------------
+struct emdas_cell * emdas_get_ref(struct emdas_cell *cell, unsigned type)
+{
+	if (!cell) return NULL;
+
+	struct emdas_ref *r = cell->ref;
+	while (r) {
+		if (r->type == type) {
+			return r->cell;
+		}
+		r = r->next;
+	}
+
+	return NULL;
+}
+
+// -----------------------------------------------------------------------
 static void emdas_analyze(struct emdas *emd, struct emdas_cell *cell)
 {
 	assert(emd && cell);
@@ -329,14 +366,16 @@ static void emdas_analyze(struct emdas *emd, struct emdas_cell *cell)
 		}
 
 	// correction for dword and fp address arguments
-	} else if (cell->arg_16	&& FMATCH(cell->flags, FL_2WORD) && FNONE(cell->flags, FL_MOD_B | FL_MOD_D | FL_PREMOD)) {
+	} else if (FMATCH(cell->flags, FL_2WORD) && FNONE(cell->flags, FL_MOD_B | FL_MOD_D | FL_PREMOD)) {
+		struct emdas_cell *arg = emdas_get_ref(cell, REF_ARG);
+		assert(arg);
 		if (FMATCH(cell->flags, FL_ARG_A_DWORD)) {
-			emdas_fill_data(emd, cell->arg_16->v+0);
-			emdas_fill_data(emd, cell->arg_16->v+1);
+			emdas_fill_data(emd, arg->v+0);
+			emdas_fill_data(emd, arg->v+1);
 		} else if (FMATCH(cell->flags, FL_ARG_A_FLOAT)) {
-			emdas_fill_data(emd, cell->arg_16->v+0);
-			emdas_fill_data(emd, cell->arg_16->v+1);
-			emdas_fill_data(emd, cell->arg_16->v+2);
+			emdas_fill_data(emd, arg->v+0);
+			emdas_fill_data(emd, arg->v+1);
+			emdas_fill_data(emd, arg->v+2);
 		}
 	}
 }
@@ -367,7 +406,7 @@ int emdas_import_word(struct emdas *emd, uint16_t addr, uint16_t word)
 		// check if instruction needs another cell for normal argument
 		if (FMATCH(cell->flags, FL_ARG_NORM | FL_2WORD)) {
 			emdas_fill_arg(emd, addr+1);
-			cell->arg_16 = emd->cells + (uint16_t) (addr+1);
+			emdas_add_ref(emd, cell, addr+1, REF_ARG);
 		}
 
 		// do other analysis
@@ -438,16 +477,17 @@ static int emdas_normarg_format(char *buf, int maxlen, char **elem_format, struc
 		pos += snprintf(buf+pos, maxlen-pos, elem_format[SYN_ELEM_REG], _C(cell->v));
 	// rC == 0, value in 2nd arg
 	} else {
+		struct emdas_cell *arg = emdas_get_ref(cell, REF_ARG);
 		// TODO: handle arg split from op by label on arg
 		if (use_name && cell->arg_name) {
 			pos += snprintf(buf+pos, maxlen-pos, "%s", cell->arg_name);
-		} else if (!cell->arg_16) {
+		} else if (!arg) {
 			pos += snprintf(buf+pos, maxlen-pos, "???");
 		} else {
-			if (cell->arg_16->v == 0) {
+			if (arg->v == 0) {
 				pos += snprintf(buf+pos, maxlen-pos, "0");
 			} else {
-				pos += snprintf(buf+pos, maxlen-pos, elem_format[SYN_ELEM_ARG_16], cell->arg_16->v);
+				pos += snprintf(buf+pos, maxlen-pos, elem_format[SYN_ELEM_ARG_16], arg->v);
 			}
 		}
 	}
@@ -630,11 +670,6 @@ int __emdas_dump_cell(FILE *f, struct emdas_cell *cell)
 	fprintf(f, "Registers  : rA = %i, rB = %i, rC = %i\n", _A(cell->v), _B(cell->v), _C(cell->v));
 	fprintf(f, "Arg. name  : %s\n", cell->arg_name);
 	fprintf(f, "Arg. short : %i\n", cell->arg_short);
-	if (cell->arg_16) {
-		fprintf(f, "Arg. 16    : %i\n", cell->arg_16->v);
-	} else {
-		fprintf(f, "Arg. 16    : NULL\n");
-	}
 	fprintf(f, "Flags      : %s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s\n",
 		(cell->flags & FL_INS_OS) ? "OS, " : "",
 		(cell->flags & FL_INS_IO) ? "IO, " : "",

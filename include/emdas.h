@@ -172,7 +172,6 @@ struct emdas_cell {
 	unsigned flags;
 
 	int arg_short;
-	struct emdas_cell *arg_16;
 	char *arg_name;
 
 	char *label;
@@ -200,6 +199,9 @@ int emdas_reset_syntax(struct emdas *emd);
 
 unsigned emdas_get_features(struct emdas *emd);
 int emdas_set_features(struct emdas *emd, unsigned features);
+
+int emdas_add_ref(struct emdas *emd, struct emdas_cell *cell, uint16_t dest_addr, unsigned type);
+struct emdas_cell * emdas_get_ref(struct emdas_cell *cell, unsigned type);
 
 int emdas_import_word(struct emdas *emd, uint16_t addr, uint16_t word);
 int emdas_import_tab(struct emdas *emd, uint16_t addr, int size, uint16_t *tab);

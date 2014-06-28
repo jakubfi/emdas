@@ -102,17 +102,23 @@ int write_asm(FILE *f, struct emdas *emd, uint16_t base_addr, uint16_t size)
 	for (int addr=base_addr ; addr<base_addr+size ; addr++, pos=0) {
 		cell = emdas_get_cell(emd, addr);
 
-		// skip args
-		if (cell->type == CELL_ARG) continue;
 		//__emdas_dump_cell(stdout, cell);
 
+		// skip args
+		if (cell->type == CELL_ARG) continue;
+
 		// instruction
-		pos += snprintf(buf+pos, bsize-pos, "%-60s", cell->text);
+		pos += snprintf(buf+pos, bsize-pos, "%-50s", cell->text);
 
 		// comment
 		if ((!skip_values) && ((cell->type != CELL_DATA) || (cell->arg_name))) {
 			if ((cell->flags & FL_2WORD)) {
-				pos += snprintf(buf+pos, bsize-pos, " ; .word 0x%04x, 0x%04x", cell->v, cell->arg_16->v);
+				struct emdas_cell *arg = emdas_get_ref(cell, REF_ARG);
+				if (arg) {
+					pos += snprintf(buf+pos, bsize-pos, " ; .word 0x%04x, 0x%04x", cell->v, arg->v);
+				} else {
+					pos += snprintf(buf+pos, bsize-pos, " ; .word 0x%04x, ??? (missing arg ref, this is weird)", cell->v);
+				}
 			} else {
 				pos += snprintf(buf+pos, bsize-pos, " ; .word 0x%04x", cell->v);
 			}
