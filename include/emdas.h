@@ -142,6 +142,26 @@ enum emdas_features {
 #define FEAT_SYN (FEAT_ADDR | FEAT_LABELS | FEAT_UCASE)
 #define FEAT_ALL (FEAT_SYN)
 
+enum emdas_refs {
+	REF_ARG,
+	REF_WORD,
+	REF_DWORD,
+	REF_FLOAT,
+	REF_JUMP,
+	REF_CALL,
+	REF_BRANCH,
+	REF_IO_OK,
+	REF_IO_EN,
+	REF_IO_NO,
+	REF_IO_PE,
+};
+
+struct emdas_ref {
+	int type;
+	struct emdas_cell *cell;
+	struct emdas_ref *next;
+};
+
 struct emdas_cell {
 	uint16_t addr;
 	uint16_t v;
@@ -158,6 +178,9 @@ struct emdas_cell {
 	char *label;
 	int syn_generation;
 	char *text;
+
+	struct emdas_ref *ref;
+	struct emdas_ref *rref;
 };
 
 typedef int (*emdas_getfun)(uint16_t addr);

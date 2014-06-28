@@ -101,6 +101,9 @@ int write_asm(FILE *f, struct emdas *emd, uint16_t base_addr, uint16_t size)
 
 	for (int addr=base_addr ; addr<base_addr+size ; addr++, pos=0) {
 		cell = emdas_get_cell(emd, addr);
+
+		// skip args
+		if (cell->type == CELL_ARG) continue;
 		//__emdas_dump_cell(stdout, cell);
 
 		// instruction

@@ -248,12 +248,11 @@ struct emdas_cell * emdas_get_cell(struct emdas *emd, uint16_t addr)
 }
 
 // -----------------------------------------------------------------------
-static void emdas_fill_data(struct emdas_cell *cell, uint16_t addr, uint16_t word)
+static void emdas_fill_data(struct emdas *emd, uint16_t addr)
 {
-	assert(cell);
+	assert(emd);
+	struct emdas_cell *cell = emd->cells + addr;
 
-	cell->addr = addr;
-	cell->v = word;
 	cell->type = CELL_DATA;
 
 	cell->op_id = OP_NONE;
@@ -268,19 +267,21 @@ static void emdas_fill_data(struct emdas_cell *cell, uint16_t addr, uint16_t wor
 }
 
 // -----------------------------------------------------------------------
-static void emdas_fill_arg(struct emdas_cell *cell, uint16_t addr, uint16_t word)
+static void emdas_fill_arg(struct emdas *emd, uint16_t addr)
 {
-	emdas_fill_data(cell, addr, word);
+	assert(emd);
+	struct emdas_cell *cell = emd->cells + addr;
+
+	emdas_fill_data(emd, addr);
 	cell->type = CELL_ARG;
 }
 
 // -----------------------------------------------------------------------
-static int emdas_fill_ins(struct emdas_cell *cell, const struct opdef *o, uint16_t addr, uint16_t word)
+static int emdas_fill_ins(struct emdas *emd, uint16_t addr, const struct opdef *o)
 {
-	assert(cell && o);
+	assert(emd && o);
+	struct emdas_cell *cell = emd->cells + addr;
 
-	cell->addr = addr;
-	cell->v = word;
 	cell->type = CELL_INS;
 
 	// copy everything, we may want to change it later on
@@ -312,27 +313,69 @@ static int emdas_fill_ins(struct emdas_cell *cell, const struct opdef *o, uint16
 }
 
 // -----------------------------------------------------------------------
+static void emdas_analyze(struct emdas *emd, struct emdas_cell *cell)
+{
+	assert(emd && cell);
+
+	// correction for I/O address arguments
+	if (FMATCH(cell->flags, FL_INS_IO)) {
+		emdas_fill_data(emd, cell->addr+2);
+		emdas_fill_data(emd, cell->addr+3);
+		emdas_fill_data(emd, cell->addr+4);
+		if (FMATCH(cell->flags, FL_2WORD)) {
+			emdas_fill_data(emd, cell->addr+5);
+		} else {
+			emdas_fill_data(emd, cell->addr+1);
+		}
+
+	// correction for dword and fp address arguments
+	} else if (cell->arg_16	&& FMATCH(cell->flags, FL_2WORD) && FNONE(cell->flags, FL_MOD_B | FL_MOD_D | FL_PREMOD)) {
+		if (FMATCH(cell->flags, FL_ARG_A_DWORD)) {
+			emdas_fill_data(emd, cell->arg_16->v+0);
+			emdas_fill_data(emd, cell->arg_16->v+1);
+		} else if (FMATCH(cell->flags, FL_ARG_A_FLOAT)) {
+			emdas_fill_data(emd, cell->arg_16->v+0);
+			emdas_fill_data(emd, cell->arg_16->v+1);
+			emdas_fill_data(emd, cell->arg_16->v+2);
+		}
+	}
+}
+
+// -----------------------------------------------------------------------
 int emdas_import_word(struct emdas *emd, uint16_t addr, uint16_t word)
 {
 	if (!emd) return -1;
 
 	const struct opdef *o = emdas_get_op(word);
-
 	assert(o);
 
 	struct emdas_cell *cell = emd->cells + addr;
-	struct emdas_cell *next_cell = emd->cells + (uint16_t)(addr+1);
+
+	// set cell addr and value
+	cell->addr = addr;
+	cell->v = word;
+
+	// is this cell already marked as an argument?
+	if (cell->type == CELL_ARG) {
+		// nothing more to do
+		return 1;
 
 	// is this an instruction?
-	if ((o->op_id > OP_NONE) && (o->op_id < OP_MAX)) {
-		emdas_fill_ins(cell, o, addr, word);
+	} else if ((o->op_id > OP_NONE) && (o->op_id < OP_MAX)) {
+		emdas_fill_ins(emd, addr, o);
+
 		// check if instruction needs another cell for normal argument
 		if (FMATCH(cell->flags, FL_ARG_NORM | FL_2WORD)) {
-			cell->arg_16 = next_cell;
+			emdas_fill_arg(emd, addr+1);
+			cell->arg_16 = emd->cells + (uint16_t) (addr+1);
 		}
-	// treat as data
+
+		// do other analysis
+		emdas_analyze(emd, cell);
+
+	// treat cell as data
 	} else {
-		emdas_fill_data(cell, addr, word);
+		emdas_fill_data(emd, addr);
 	}
 
 	return 1;
@@ -377,47 +420,7 @@ cleanup:
 	free(data);
 	return read_size;
 }
-/*
-// -----------------------------------------------------------------------
-int emdas_analyze(struct emdas *emd)
-{
-	struct emdas_cell *cell = emd->cells;
 
-	if (!cell) {
-		return -1;
-	}
-
-	for (int offset=0 ; offset<emd->size ; offset++, cell++) {
-
-		// correction for I/O address arguments
-		if (FMATCH(cell->flags, FL_INS_IO)) {
-			emdas_update_type(emd, offset+2, CELL_DATA);
-			emdas_update_type(emd, offset+3, CELL_DATA);
-			emdas_update_type(emd, offset+4, CELL_DATA);
-			if (FMATCH(cell->flags, FL_2WORD)) {
-				emdas_update_type(emd, offset+5, CELL_DATA);
-			} else {
-				emdas_update_type(emd, offset+1, CELL_DATA);
-			}
-
-		// correction for long and fp address arguments
-		} else if (cell->arg_16
-			&& FMATCH(cell->flags, FL_ARG_NORM | FL_2WORD)
-			&& FNONE(cell->flags, FL_MOD_B | FL_MOD_D | FL_PREMOD)
-		) {
-			if (FMATCH(cell->flags, FL_ARG_A_DWORD)) {
-				emdas_update_type(emd, cell->arg_16->v, CELL_DATA);
-				emdas_update_type(emd, cell->arg_16->v+1, CELL_DATA);
-			} else if (FMATCH(cell->flags, FL_ARG_A_FLOAT)) {
-				emdas_update_type(emd, cell->arg_16->v, CELL_DATA);
-				emdas_update_type(emd, cell->arg_16->v+1, CELL_DATA);
-				emdas_update_type(emd, cell->arg_16->v+2, CELL_DATA);
-			}
-		}
-	}
-	return 0;
-}
-*/
 // -----------------------------------------------------------------------
 static int emdas_normarg_format(char *buf, int maxlen, char **elem_format, struct emdas_cell *cell, int use_name)
 {
