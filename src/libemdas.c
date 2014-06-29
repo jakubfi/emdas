@@ -469,16 +469,20 @@ int emdas_import_word(struct emdas *emd, uint16_t addr, uint16_t word)
 	free(cell->text);
 	cell->text = NULL;
 
-	struct emdas_ref *rref = cell->rref;
-
 	// redo rrefs, if any
-	if (rref) {
+	if (cell->rref) {
 		PDEBUG(addr, "==== CELL HAS RREFS ===");
+		struct emdas_ref *rref = cell->rref;
+		struct emdas_ref *rref_orig = cell->rref;
+		cell->rref = NULL;
 		while (rref) {
 			PDEBUG(addr, "rref: 0x%04x", rref->cell->addr);
+			emdas_drop_refs(rref->cell->ref);
+			rref->cell->ref = NULL;
 			emdas_analyze(emd, rref->cell);
 			rref = rref->next;
 		}
+		emdas_drop_refs(rref_orig);
 		PDEBUG(addr, "==== REFS DONE ===");
 
 	// or just analyze the cell
