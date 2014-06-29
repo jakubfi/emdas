@@ -27,6 +27,23 @@
 #include "emdas.h"
 #include "iset.h"
 
+// -----------------------------------------------------------------------
+void pdebug(uint16_t addr, char *format, ...)
+{
+	fprintf(stderr, "debug @ 0x%04x : ", addr);
+	va_list ap;
+	va_start(ap, format);
+	vfprintf(stderr, format, ap);
+	fprintf(stderr, "\n");
+	va_end(ap);
+}
+
+#ifdef DEBUG
+#define PDEBUG(addr, format, ...) pdebug(addr, format, ##__VA_ARGS__)
+#else
+#define PDEBUG(addr, format, ...) ;
+#endif
+
 #define   FANY(v, flags) (((v) & (flags)) != 0)
 #define  FNONE(v, flags) (((v) & (flags)) == 0)
 #define FMATCH(v, flags) (((v) & (flags)) == (flags))
@@ -133,6 +150,7 @@ static const char *emdas_ins_format[SYN_INS_MAX] = {
 };
 
 static char * emdas_make_text(struct emdas_cell *cell, char **elem_format, unsigned features);
+static void emdas_drop_refs(struct emdas_ref *ref);
 
 // -----------------------------------------------------------------------
 struct emdas * emdas_init()
@@ -164,6 +182,8 @@ void emdas_shutdown(struct emdas *emd)
 		free(emd->cells[i].text);
 		free(emd->cells[i].label);
 		free(emd->cells[i].arg_name);
+		emdas_drop_refs(emd->cells[i].ref);
+		emdas_drop_refs(emd->cells[i].rref);
 	}
 
 	free(emd);
@@ -250,6 +270,8 @@ struct emdas_cell * emdas_get_cell(struct emdas *emd, uint16_t addr)
 // -----------------------------------------------------------------------
 static void emdas_fill_data(struct emdas *emd, uint16_t addr)
 {
+	PDEBUG(addr, "Fill data");
+
 	assert(emd);
 	struct emdas_cell *cell = emd->cells + addr;
 
@@ -268,6 +290,8 @@ static void emdas_fill_data(struct emdas *emd, uint16_t addr)
 // -----------------------------------------------------------------------
 static void emdas_fill_arg(struct emdas *emd, uint16_t addr)
 {
+	PDEBUG(addr, "Fill arg");
+
 	assert(emd);
 	struct emdas_cell *cell = emd->cells + addr;
 
@@ -278,6 +302,8 @@ static void emdas_fill_arg(struct emdas *emd, uint16_t addr)
 // -----------------------------------------------------------------------
 static int emdas_fill_ins(struct emdas *emd, uint16_t addr, const struct opdef *o)
 {
+	PDEBUG(addr, "Fill instruction");
+
 	assert(emd && o);
 	struct emdas_cell *cell = emd->cells + addr;
 
@@ -312,8 +338,9 @@ static int emdas_fill_ins(struct emdas *emd, uint16_t addr, const struct opdef *
 }
 
 // -----------------------------------------------------------------------
-int emdas_add_ref(struct emdas *emd, struct emdas_cell *cell, uint16_t dest_addr, unsigned type)
+static int emdas_add_ref(struct emdas *emd, struct emdas_cell *cell, uint16_t dest_addr, unsigned type)
 {
+	PDEBUG(cell->addr, "Add ref -> 0x%04x", dest_addr);
 	// forward
 	struct emdas_ref *ref = malloc(sizeof(struct emdas_ref));
 	if (!ref) return -1;
@@ -350,12 +377,34 @@ struct emdas_cell * emdas_get_ref(struct emdas_cell *cell, unsigned type)
 }
 
 // -----------------------------------------------------------------------
-static void emdas_analyze(struct emdas *emd, struct emdas_cell *cell)
+static void emdas_drop_refs(struct emdas_ref *ref)
 {
-	assert(emd && cell);
+	if (!ref) return;
+
+	struct emdas_ref *r = ref;
+	struct emdas_ref *nextr;
+	while (r) {
+		nextr = r->next;
+		free(r);
+		r = nextr;
+	}
+}
+
+// -----------------------------------------------------------------------
+static void emdas_analyze_ins(struct emdas *emd, struct emdas_cell *cell, const struct opdef *o)
+{
+	assert(emd && cell && o);
+
+	// check if instruction needs another cell for normal argument
+	if (FMATCH(cell->flags, FL_ARG_NORM | FL_2WORD)) {
+		PDEBUG(cell->addr, "analyze(): two-word -> 0x%04x", cell->addr+1);
+		emdas_fill_arg(emd, cell->addr+1);
+		emdas_add_ref(emd, cell, cell->addr+1, REF_ARG);
+	}
 
 	// correction for I/O address arguments
 	if (FMATCH(cell->flags, FL_INS_IO)) {
+		PDEBUG(cell->addr, "analyze(): I/O instruction");
 		emdas_fill_data(emd, cell->addr+2);
 		emdas_fill_data(emd, cell->addr+3);
 		emdas_fill_data(emd, cell->addr+4);
@@ -370,9 +419,11 @@ static void emdas_analyze(struct emdas *emd, struct emdas_cell *cell)
 		struct emdas_cell *arg = emdas_get_ref(cell, REF_ARG);
 		assert(arg);
 		if (FMATCH(cell->flags, FL_ARG_A_DWORD)) {
+			PDEBUG(cell->addr, "analyze(): DWORD argument");
 			emdas_fill_data(emd, arg->v+0);
 			emdas_fill_data(emd, arg->v+1);
 		} else if (FMATCH(cell->flags, FL_ARG_A_FLOAT)) {
+			PDEBUG(cell->addr, "analyze(): FLOAT argument");
 			emdas_fill_data(emd, arg->v+0);
 			emdas_fill_data(emd, arg->v+1);
 			emdas_fill_data(emd, arg->v+2);
@@ -381,40 +432,58 @@ static void emdas_analyze(struct emdas *emd, struct emdas_cell *cell)
 }
 
 // -----------------------------------------------------------------------
+static void emdas_analyze(struct emdas *emd, struct emdas_cell *cell)
+{
+	assert(emd && cell);
+
+	const struct opdef *o = emdas_get_op(cell->v);
+	assert(o);
+
+	assert((cell->op_id >= OP_NONE) && (cell->op_id < OP_MAX));
+
+	// is this an instruction?
+	if (o->op_id != OP_NONE) {
+		emdas_fill_ins(emd, cell->addr, o);
+		emdas_analyze_ins(emd, cell, o);
+
+	// treat cell as data
+	} else {
+		emdas_fill_data(emd, cell->addr);
+	}
+}
+
+// -----------------------------------------------------------------------
 int emdas_import_word(struct emdas *emd, uint16_t addr, uint16_t word)
 {
 	if (!emd) return -1;
 
-	const struct opdef *o = emdas_get_op(word);
-	assert(o);
-
 	struct emdas_cell *cell = emd->cells + addr;
+
+	PDEBUG(addr, "---- IMPORT value: 0x%04x --------------------------------", word);
 
 	// set cell addr and value
 	cell->addr = addr;
 	cell->v = word;
 
-	// is this cell already marked as an argument?
-	if (cell->type == CELL_ARG) {
-		// nothing more to do
-		return 1;
+	// text representation needs to be redone
+	free(cell->text);
+	cell->text = NULL;
 
-	// is this an instruction?
-	} else if ((o->op_id > OP_NONE) && (o->op_id < OP_MAX)) {
-		emdas_fill_ins(emd, addr, o);
+	struct emdas_ref *rref = cell->rref;
 
-		// check if instruction needs another cell for normal argument
-		if (FMATCH(cell->flags, FL_ARG_NORM | FL_2WORD)) {
-			emdas_fill_arg(emd, addr+1);
-			emdas_add_ref(emd, cell, addr+1, REF_ARG);
+	// redo rrefs, if any
+	if (rref) {
+		PDEBUG(addr, "==== CELL HAS RREFS ===");
+		while (rref) {
+			PDEBUG(addr, "rref: 0x%04x", rref->cell->addr);
+			emdas_analyze(emd, rref->cell);
+			rref = rref->next;
 		}
+		PDEBUG(addr, "==== REFS DONE ===");
 
-		// do other analysis
-		emdas_analyze(emd, cell);
-
-	// treat cell as data
+	// or just analyze the cell
 	} else {
-		emdas_fill_data(emd, addr);
+		emdas_analyze(emd, cell);
 	}
 
 	return 1;

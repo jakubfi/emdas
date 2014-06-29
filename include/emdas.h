@@ -25,6 +25,8 @@
 
 #define EMDAS_LINE_MAX 1024
 
+// --- opcodes -----------------------------------------------------------
+
 // opcode identifiers (also act as indexes for opcode names)
 
 enum emdas_op_ids {
@@ -47,6 +49,64 @@ enum emdas_op_ids {
 /* G */		OP_RD, OP_RF, OP_RA, OP_RL, OP_PD, OP_PF, OP_PA, OP_PL,
 /* B/N */	OP_MB, OP_IM, OP_KI, OP_FI, OP_SP, OP_MD, OP_RZ, OP_IB,
 			OP_MAX
+};
+
+// --- syntax ------------------------------------------------------------
+
+enum emdas_syn_elem {
+	SYN_ELEM_MNEMO,
+	SYN_ELEM_REG,
+	SYN_ELEM_ARG_7,
+	SYN_ELEM_ARG_4,
+	SYN_ELEM_ARG_8,
+	SYN_ELEM_ARG_16,
+	SYN_ELEM_ADDR,
+	SYN_ELEM_LABEL,
+	SYN_ELEM_MAX
+};
+
+// --- ref ---------------------------------------------------------------
+
+struct emdas_ref {
+	int type;
+	struct emdas_cell *cell;
+	struct emdas_ref *next;
+};
+
+enum emdas_refs {
+	REF_ARG,
+	REF_WORD,
+	REF_DWORD,
+	REF_FLOAT,
+	REF_JUMP,
+	REF_CALL,
+	REF_BRANCH,
+	REF_IO_OK,
+	REF_IO_EN,
+	REF_IO_NO,
+	REF_IO_PE,
+};
+
+// --- cell --------------------------------------------------------------
+
+struct emdas_cell {
+	uint16_t addr;
+	uint16_t v;
+	uint8_t type;
+
+	uint8_t op_id;
+	uint8_t op_group;
+	unsigned flags;
+
+	int arg_short;
+	char *arg_name;
+
+	char *label;
+	int syn_generation;
+	char *text;
+
+	struct emdas_ref *ref;
+	struct emdas_ref *rref;
 };
 
 // cell types
@@ -109,78 +169,13 @@ enum emdas_flags {
 
 };
 
-// convenience macros:
+// flags convenience macros
 
 #define FL_ARG_SHORT (FL_ARG_SHORT4 | FL_ARG_SHORT7 | FL_ARG_SHORT8)
 #define FL_ARG_IMMEDIATE (FL_ARG_SHORT | FL_ARG_2WORD)
 #define FL_ARG_INDIRECT (FL_ARG_A_BYTE | FL_ARG_A_WORD | FL_ARG_A_DWORD | FL_ARG_A_FLOAT)
 
-// syntax elements identifiers
-
-enum emdas_syn_elem {
-	SYN_ELEM_MNEMO,
-	SYN_ELEM_REG,
-	SYN_ELEM_ARG_7,
-	SYN_ELEM_ARG_4,
-	SYN_ELEM_ARG_8,
-	SYN_ELEM_ARG_16,
-	SYN_ELEM_ADDR,
-	SYN_ELEM_LABEL,
-	SYN_ELEM_MAX
-};
-
-// emdas features
-
-enum emdas_features {
-	FEAT_NONE	= 0,
-	FEAT_ADDR	= 1 << 0,
-	FEAT_LABELS	= 1 << 1,
-	FEAT_UCASE	= 1 << 2,
-};
-
-// convenience feature macros
-#define FEAT_SYN (FEAT_ADDR | FEAT_LABELS | FEAT_UCASE)
-#define FEAT_ALL (FEAT_SYN)
-
-enum emdas_refs {
-	REF_ARG,
-	REF_WORD,
-	REF_DWORD,
-	REF_FLOAT,
-	REF_JUMP,
-	REF_CALL,
-	REF_BRANCH,
-	REF_IO_OK,
-	REF_IO_EN,
-	REF_IO_NO,
-	REF_IO_PE,
-};
-
-struct emdas_ref {
-	int type;
-	struct emdas_cell *cell;
-	struct emdas_ref *next;
-};
-
-struct emdas_cell {
-	uint16_t addr;
-	uint16_t v;
-	uint8_t type;
-
-	uint8_t op_id;
-	uint8_t op_group;
-	unsigned flags;
-
-	int arg_short;
-	char *arg_name;
-
-	char *label;
-	int syn_generation;
-	char *text;
-
-	struct emdas_ref *ref;
-	struct emdas_ref *rref;
-};
+// --- emdas -------------------------------------------------------------
 
 typedef int (*emdas_getfun)(uint16_t addr);
 
@@ -191,6 +186,21 @@ struct emdas {
 	char *elem_format[SYN_ELEM_MAX];
 };
 
+// --- features ----------------------------------------------------------
+
+enum emdas_features {
+	FEAT_NONE	= 0,
+	FEAT_ADDR	= 1 << 0,
+	FEAT_LABELS	= 1 << 1,
+	FEAT_UCASE	= 1 << 2,
+};
+
+// features convenience macros
+#define FEAT_SYN (FEAT_ADDR | FEAT_LABELS | FEAT_UCASE)
+#define FEAT_ALL (FEAT_SYN)
+
+// --- prototypes --------------------------------------------------------
+
 struct emdas * emdas_init();
 void emdas_shutdown(struct emdas *emd);
 
@@ -200,7 +210,6 @@ int emdas_reset_syntax(struct emdas *emd);
 unsigned emdas_get_features(struct emdas *emd);
 int emdas_set_features(struct emdas *emd, unsigned features);
 
-int emdas_add_ref(struct emdas *emd, struct emdas_cell *cell, uint16_t dest_addr, unsigned type);
 struct emdas_cell * emdas_get_ref(struct emdas_cell *cell, unsigned type);
 
 int emdas_import_word(struct emdas *emd, uint16_t addr, uint16_t word);
