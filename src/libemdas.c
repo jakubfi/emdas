@@ -27,10 +27,15 @@
 #include "emdas.h"
 #include "iset.h"
 
+int dtree_level = 0;
+
 // -----------------------------------------------------------------------
 void pdebug(uint16_t addr, char *format, ...)
 {
-	fprintf(stderr, "debug @ 0x%04x : ", addr);
+	fprintf(stderr, "debug @ 0x%04x ^%-3i ", addr, dtree_level);
+	for (int i=0 ; i<dtree_level ; i++) {
+		fprintf(stderr, "   ");
+	}
 	va_list ap;
 	va_start(ap, format);
 	vfprintf(stderr, format, ap);
@@ -47,6 +52,7 @@ void pdebug(uint16_t addr, char *format, ...)
 #define   FANY(v, flags) (((v) & (flags)) != 0)
 #define  FNONE(v, flags) (((v) & (flags)) == 0)
 #define FMATCH(v, flags) (((v) & (flags)) == (flags))
+#define ADDR(cell) emdas_get_addr(emd, cell)
 
 static char *emdas_ilist_lcase[OP_MAX] = {
 			".word",
@@ -149,7 +155,7 @@ static const char *emdas_ins_format[SYN_INS_MAX] = {
     /* SYN_INS__ */		"%m",
 };
 
-static char * emdas_make_text(struct emdas_cell *cell, char **elem_format, unsigned features);
+static char * emdas_make_text(struct emdas_cell *cell, uint16_t addr, char **elem_format, unsigned features);
 static void emdas_drop_refs(struct emdas_ref *ref);
 
 // -----------------------------------------------------------------------
@@ -252,6 +258,12 @@ int emdas_set_features(struct emdas *emd, unsigned features)
 }
 
 // -----------------------------------------------------------------------
+uint16_t emdas_get_addr(struct emdas *emd, struct emdas_cell *cell)
+{
+	return cell - emd->cells;
+}
+
+// -----------------------------------------------------------------------
 struct emdas_cell * emdas_get_cell(struct emdas *emd, uint16_t addr)
 {
 	if (!emd) return NULL;
@@ -260,7 +272,7 @@ struct emdas_cell * emdas_get_cell(struct emdas *emd, uint16_t addr)
 
 	// check if we need to (re-)generate text representation
 	if (!cell->text || (cell->syn_generation != emd->syn_generation)) {
-		cell->text = emdas_make_text(cell, emd->elem_format, emd->features);
+		cell->text = emdas_make_text(cell, ADDR(cell), emd->elem_format, emd->features);
 	    cell->syn_generation = emd->syn_generation;
 	}
 
@@ -270,7 +282,7 @@ struct emdas_cell * emdas_get_cell(struct emdas *emd, uint16_t addr)
 // -----------------------------------------------------------------------
 static void emdas_fill_data(struct emdas *emd, uint16_t addr)
 {
-	PDEBUG(addr, "Fill data");
+	PDEBUG(addr, "Fill as data");
 
 	assert(emd);
 	struct emdas_cell *cell = emd->cells + addr;
@@ -290,7 +302,7 @@ static void emdas_fill_data(struct emdas *emd, uint16_t addr)
 // -----------------------------------------------------------------------
 static void emdas_fill_arg(struct emdas *emd, uint16_t addr)
 {
-	PDEBUG(addr, "Fill arg");
+	PDEBUG(addr, "Fill as arg");
 
 	assert(emd);
 	struct emdas_cell *cell = emd->cells + addr;
@@ -302,7 +314,7 @@ static void emdas_fill_arg(struct emdas *emd, uint16_t addr)
 // -----------------------------------------------------------------------
 static int emdas_fill_ins(struct emdas *emd, uint16_t addr, const struct opdef *o)
 {
-	PDEBUG(addr, "Fill instruction");
+	PDEBUG(addr, "Fill as instruction");
 
 	assert(emd && o);
 	struct emdas_cell *cell = emd->cells + addr;
@@ -340,7 +352,6 @@ static int emdas_fill_ins(struct emdas *emd, uint16_t addr, const struct opdef *
 // -----------------------------------------------------------------------
 static int emdas_add_ref(struct emdas *emd, struct emdas_cell *cell, uint16_t dest_addr, unsigned type)
 {
-	PDEBUG(cell->addr, "Add ref -> 0x%04x", dest_addr);
 	// forward
 	struct emdas_ref *ref = malloc(sizeof(struct emdas_ref));
 	if (!ref) return -1;
@@ -348,6 +359,7 @@ static int emdas_add_ref(struct emdas *emd, struct emdas_cell *cell, uint16_t de
 	ref->cell = emd->cells + dest_addr;
 	ref->next = cell->ref;
 	cell->ref = ref;
+	PDEBUG(ADDR(cell), "Added ref -> @ 0x%04x (type: %i)", ADDR(ref->cell), type);
 
 	// reverse
 	struct emdas_ref *rref = malloc(sizeof(struct emdas_ref));
@@ -356,6 +368,7 @@ static int emdas_add_ref(struct emdas *emd, struct emdas_cell *cell, uint16_t de
 	rref->cell = cell;
 	rref->next = emd->cells[dest_addr].rref;
 	emd->cells[dest_addr].rref = rref;
+	PDEBUG(dest_addr, "Added rref -> @ 0x%04x (type: %i)", ADDR(rref->cell), type);
 
 	return 0;
 }
@@ -377,10 +390,27 @@ struct emdas_cell * emdas_get_ref(struct emdas_cell *cell, unsigned type)
 }
 
 // -----------------------------------------------------------------------
+static void emdas_drop_ref(struct emdas_ref **ref, struct emdas_cell *cell)
+{
+	struct emdas_ref **r = ref;
+	struct emdas_ref *prev = NULL;
+
+	while (r && *r) {
+		if ((*r)->cell == cell) {
+			if (prev) {
+				prev->next = (*r)->next;
+				free(*r);
+			} else {
+				free(*r);
+				*r = NULL;
+			}
+		}
+	}
+}
+
+// -----------------------------------------------------------------------
 static void emdas_drop_refs(struct emdas_ref *ref)
 {
-	if (!ref) return;
-
 	struct emdas_ref *r = ref;
 	struct emdas_ref *nextr;
 	while (r) {
@@ -397,21 +427,32 @@ static void emdas_analyze_ins(struct emdas *emd, struct emdas_cell *cell, const 
 
 	// check if instruction needs another cell for normal argument
 	if (FMATCH(cell->flags, FL_ARG_NORM | FL_2WORD)) {
-		PDEBUG(cell->addr, "analyze(): two-word -> 0x%04x", cell->addr+1);
-		emdas_fill_arg(emd, cell->addr+1);
-		emdas_add_ref(emd, cell, cell->addr+1, REF_ARG);
+		PDEBUG(ADDR(cell), "analyze(): 2nd word @ 0x%04x", ADDR(cell)+1);
+		emdas_fill_arg(emd, ADDR(cell)+1);
+		emdas_add_ref(emd, cell, ADDR(cell)+1, REF_ARG);
 	}
 
 	// correction for I/O address arguments
 	if (FMATCH(cell->flags, FL_INS_IO)) {
-		PDEBUG(cell->addr, "analyze(): I/O instruction");
-		emdas_fill_data(emd, cell->addr+2);
-		emdas_fill_data(emd, cell->addr+3);
-		emdas_fill_data(emd, cell->addr+4);
+		PDEBUG(ADDR(cell), "analyze(): I/O instruction");
 		if (FMATCH(cell->flags, FL_2WORD)) {
-			emdas_fill_data(emd, cell->addr+5);
+			emdas_fill_data(emd, ADDR(cell)+2);
+			emdas_add_ref(emd, cell, ADDR(cell)+2, REF_IO_NO);
+			emdas_fill_data(emd, ADDR(cell)+3);
+			emdas_add_ref(emd, cell, ADDR(cell)+3, REF_IO_EN);
+			emdas_fill_data(emd, ADDR(cell)+4);
+			emdas_add_ref(emd, cell, ADDR(cell)+4, REF_IO_OK);
+			emdas_fill_data(emd, ADDR(cell)+5);
+			emdas_add_ref(emd, cell, ADDR(cell)+5, REF_IO_PE);
 		} else {
-			emdas_fill_data(emd, cell->addr+1);
+			emdas_fill_data(emd, ADDR(cell)+1);
+			emdas_add_ref(emd, cell, ADDR(cell)+1, REF_IO_NO);
+			emdas_fill_data(emd, ADDR(cell)+2);
+			emdas_add_ref(emd, cell, ADDR(cell)+2, REF_IO_EN);
+			emdas_fill_data(emd, ADDR(cell)+3);
+			emdas_add_ref(emd, cell, ADDR(cell)+3, REF_IO_OK);
+			emdas_fill_data(emd, ADDR(cell)+4);
+			emdas_add_ref(emd, cell, ADDR(cell)+4, REF_IO_PE);
 		}
 
 	// correction for dword and fp address arguments
@@ -419,14 +460,19 @@ static void emdas_analyze_ins(struct emdas *emd, struct emdas_cell *cell, const 
 		struct emdas_cell *arg = emdas_get_ref(cell, REF_ARG);
 		assert(arg);
 		if (FMATCH(cell->flags, FL_ARG_A_DWORD)) {
-			PDEBUG(cell->addr, "analyze(): DWORD argument");
+			PDEBUG(ADDR(cell), "analyze(): DWORD argument");
 			emdas_fill_data(emd, arg->v+0);
+			emdas_add_ref(emd, cell, arg->v+0, REF_DWORD1);
 			emdas_fill_data(emd, arg->v+1);
+			emdas_add_ref(emd, cell, arg->v+1, REF_DWORD2);
 		} else if (FMATCH(cell->flags, FL_ARG_A_FLOAT)) {
-			PDEBUG(cell->addr, "analyze(): FLOAT argument");
+			PDEBUG(ADDR(cell), "analyze(): FLOAT argument");
 			emdas_fill_data(emd, arg->v+0);
+			emdas_add_ref(emd, cell, arg->v+0, REF_FLOAT1);
 			emdas_fill_data(emd, arg->v+1);
+			emdas_add_ref(emd, cell, arg->v+1, REF_FLOAT2);
 			emdas_fill_data(emd, arg->v+2);
+			emdas_add_ref(emd, cell, arg->v+2, REF_FLOAT3);
 		}
 	}
 }
@@ -434,22 +480,81 @@ static void emdas_analyze_ins(struct emdas *emd, struct emdas_cell *cell, const 
 // -----------------------------------------------------------------------
 static void emdas_analyze(struct emdas *emd, struct emdas_cell *cell)
 {
-	assert(emd && cell);
+	// text representation needs to be redone
+	free(cell->text);
+	cell->text = NULL;
 
 	const struct opdef *o = emdas_get_op(cell->v);
 	assert(o);
 
-	assert((cell->op_id >= OP_NONE) && (cell->op_id < OP_MAX));
-
 	// is this an instruction?
 	if (o->op_id != OP_NONE) {
-		emdas_fill_ins(emd, cell->addr, o);
+		PDEBUG(ADDR(cell), "PROCESS OP, value 0x%04x (%s)", cell->v, emdas_ilist_lcase[o->op_id]);
+		emdas_fill_ins(emd, ADDR(cell), o);
 		emdas_analyze_ins(emd, cell, o);
 
 	// treat cell as data
 	} else {
-		emdas_fill_data(emd, cell->addr);
+		PDEBUG(ADDR(cell), "PROCESS DATA, value 0x%04x", cell->v);
+		emdas_fill_data(emd, ADDR(cell));
 	}
+}
+
+// -----------------------------------------------------------------------
+static void emdas_process(struct emdas *emd, struct emdas_cell *cell)
+{
+	dtree_level++;
+
+	assert(emd && cell);
+	assert((cell->op_id >= OP_NONE) && (cell->op_id < OP_MAX));
+
+	struct emdas_ref *ref_stored;
+	struct emdas_ref *refp;
+
+	// cell has parents -> start analysis down from each parent
+	if (cell->rref) {
+		PDEBUG(ADDR(cell), "---- CELL HAS <- RREFS ----");
+		// store parents, nullify all parents so we don't loop
+		ref_stored = refp = cell->rref;
+		cell->rref = NULL;
+		// process each parent
+		while (refp) {
+			PDEBUG(ADDR(cell), "rref: <- @ 0x%04x (type %i)", ADDR(refp->cell), refp->type);
+			emdas_process(emd, refp->cell);
+			refp = refp->next;
+		}
+		emdas_drop_refs(ref_stored);
+		PDEBUG(ADDR(cell), "---- <- RREFS DONE ----");
+
+	// cell has children -> reprocess children
+	// (so we have clean state, those can be no longer children after we process the parent)
+	} else if (cell->ref) {
+		PDEBUG(ADDR(cell), "---- CELL HAS -> REFS ----");
+		// store all children, nullify all children
+		ref_stored = refp = cell->ref;
+		cell->ref = NULL;
+		// process each child
+		while (refp) {
+			PDEBUG(ADDR(cell), "ref: -> @ 0x%04x (type %i)", ADDR(refp->cell), refp->type);
+			// drop rref to parent so we don't loop
+			emdas_drop_ref(&refp->cell->rref, cell);
+			emdas_process(emd, refp->cell);
+			refp = refp->next;
+		}
+		emdas_drop_refs(ref_stored);
+		PDEBUG(ADDR(cell), "---- <- REFS DONE ----");
+
+		// finally, analyze parent (no need to process recursively)
+		emdas_analyze(emd, cell);
+
+	// no r/refs -> analyze
+	} else {
+		emdas_analyze(emd, cell);
+	}
+
+	//__emdas_dump_cell(stderr, cell);
+
+	dtree_level--;
 }
 
 // -----------------------------------------------------------------------
@@ -461,34 +566,9 @@ int emdas_import_word(struct emdas *emd, uint16_t addr, uint16_t word)
 
 	PDEBUG(addr, "---- IMPORT value: 0x%04x --------------------------------", word);
 
-	// set cell addr and value
-	cell->addr = addr;
 	cell->v = word;
 
-	// text representation needs to be redone
-	free(cell->text);
-	cell->text = NULL;
-
-	// redo rrefs, if any
-	if (cell->rref) {
-		PDEBUG(addr, "==== CELL HAS RREFS ===");
-		struct emdas_ref *rref = cell->rref;
-		struct emdas_ref *rref_orig = cell->rref;
-		cell->rref = NULL;
-		while (rref) {
-			PDEBUG(addr, "rref: 0x%04x", rref->cell->addr);
-			emdas_drop_refs(rref->cell->ref);
-			rref->cell->ref = NULL;
-			emdas_analyze(emd, rref->cell);
-			rref = rref->next;
-		}
-		emdas_drop_refs(rref_orig);
-		PDEBUG(addr, "==== REFS DONE ===");
-
-	// or just analyze the cell
-	} else {
-		emdas_analyze(emd, cell);
-	}
+	emdas_process(emd, cell);
 
 	return 1;
 }
@@ -649,7 +729,7 @@ static int emdas_format(char *buf, int buf_len, char **elem_format, const char *
 }
 
 // -----------------------------------------------------------------------
-static char * emdas_make_text(struct emdas_cell *cell, char **elem_format, unsigned features)
+static char * emdas_make_text(struct emdas_cell *cell, uint16_t addr, char **elem_format, unsigned features)
 {
 	assert(cell && elem_format);
 
@@ -661,7 +741,7 @@ static char * emdas_make_text(struct emdas_cell *cell, char **elem_format, unsig
 
 	// address
 	if ((features & FEAT_ADDR)) {
-		pos += snprintf(buf+pos, EMDAS_LINE_MAX-pos, elem_format[SYN_ELEM_ADDR], cell->addr);
+		pos += snprintf(buf+pos, EMDAS_LINE_MAX-pos, elem_format[SYN_ELEM_ADDR], addr);
 	}
 
 	// label
@@ -733,7 +813,6 @@ int __emdas_dump_cell(FILE *f, struct emdas_cell *cell)
 	};
 
 	fprintf(f, "---------------------------------------------\n");
-	fprintf(f, "Address    : %i\n", cell->addr);
 	fprintf(f, "Cell type  : %s\n", cell_type_names[cell->type]);
 	fprintf(f, "Cell label : %s\n", cell->label);
 	fprintf(f, "Cell value : 0x%04x\n", cell->v);

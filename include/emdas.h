@@ -75,22 +75,21 @@ struct emdas_ref {
 
 enum emdas_refs {
 	REF_ARG,
-	REF_WORD,
-	REF_DWORD,
-	REF_FLOAT,
-	REF_JUMP,
-	REF_CALL,
-	REF_BRANCH,
 	REF_IO_OK,
 	REF_IO_EN,
 	REF_IO_NO,
 	REF_IO_PE,
+	REF_WORD,
+	REF_DWORD1,
+	REF_DWORD2,
+	REF_FLOAT1,
+	REF_FLOAT2,
+	REF_FLOAT3,
 };
 
 // --- cell --------------------------------------------------------------
 
 struct emdas_cell {
-	uint16_t addr;
 	uint16_t v;
 	uint8_t type;
 
@@ -217,6 +216,7 @@ int emdas_import_tab(struct emdas *emd, uint16_t addr, int size, uint16_t *tab);
 int emdas_import_stream(struct emdas *emd, uint16_t addr, int size, FILE *stream);
 int emdas_import_emelf(struct emdas *emd, uint16_t addr, int size, struct emelf *e);
 
+uint16_t emdas_get_addr(struct emdas *emd, struct emdas_cell *cell);
 struct emdas_cell * emdas_get_cell(struct emdas *emd, uint16_t addr);
 int __emdas_dump_cell(FILE *f, struct emdas_cell *cell);
 
