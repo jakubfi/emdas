@@ -10,7 +10,7 @@ set(EMDAS_VERSION ${EMDAS_VERSION_MAJOR}.${EMDAS_VERSION_MINOR}.${EMDAS_VERSION_
 
 include_directories(${CMAKE_SOURCE_DIR}/include)
 
-add_definitions(-Wall -std=c99 -D_XOPEN_SOURCE=700 -O2 -DEMDAS_VERSION="${EMDAS_VERSION}" -g)
+add_definitions(-O0 -Wall -std=c99 -D_XOPEN_SOURCE=700 -DEMDAS_VERSION="${EMDAS_VERSION}" -g)
 
 if(DEBUG)
 	add_definitions(-DDEBUG)

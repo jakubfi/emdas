@@ -97,7 +97,7 @@ int write_asm(FILE *f, struct emdas *emd, uint16_t base_addr, uint16_t size)
 	struct emdas_cell *cell;
 	const int bsize = 1024;
 	char buf[bsize];
-	int pos;
+	int pos = 0;
 
 	for (int addr=base_addr ; addr<base_addr+size ; addr++, pos=0) {
 		cell = emdas_get_cell(emd, addr);
@@ -198,11 +198,14 @@ int main(int argc, char **argv)
 	res = write_asm(f, emd, base_addr, isize);
 	if (res < 0) {
 		printf("Cannot write disassembled source: '%s'.\n", output_file);
-		fclose(f);
+		if (output_file) {
+			fclose(f);
+		}
 		goto cleanup;
 	}
-	fclose(f);
-
+	if (output_file) {
+		fclose(f);
+	}
 	ret = 0;
 
 cleanup:

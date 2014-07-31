@@ -74,17 +74,29 @@ struct emdas_ref {
 };
 
 enum emdas_refs {
-	REF_ARG,
-	REF_IO_OK,
-	REF_IO_EN,
-	REF_IO_NO,
-	REF_IO_PE,
+	// weak refs
+	REF_JUMP,
+	REF_JUMP_IO_NO,
+	REF_JUMP_IO_EN,
+	REF_JUMP_IO_OK,
+	REF_JUMP_IO_PE,
+	REF_CALL,
+	REF_BRANCH,
 	REF_WORD,
 	REF_DWORD1,
 	REF_DWORD2,
 	REF_FLOAT1,
 	REF_FLOAT2,
 	REF_FLOAT3,
+
+	REF_STRONG,
+
+	// strong refs
+	REF_ARG,
+	REF_IO_OK,
+	REF_IO_EN,
+	REF_IO_NO,
+	REF_IO_PE,
 };
 
 // --- cell --------------------------------------------------------------
@@ -104,8 +116,8 @@ struct emdas_cell {
 	int syn_generation;
 	char *text;
 
-	struct emdas_ref *ref;
-	struct emdas_ref *rref;
+	struct emdas_ref *ref;	// forward references
+	struct emdas_ref *bref; // backward references
 };
 
 // cell types
@@ -165,7 +177,6 @@ enum emdas_flags {
 	FL_ARG_A_WORD	= 1 << 17,	// argument is a word address
 	FL_ARG_A_DWORD	= 1 << 18,	// argument is a dword address
 	FL_ARG_A_FLOAT	= 1 << 19,	// argument is a float address
-
 };
 
 // flags convenience macros
