@@ -40,7 +40,7 @@ void usage()
 	printf("   -na         : do not include adresses in asm output\n");
 	printf("   -nv         : do not include values in asm output\n");
 	printf("   -nl         : do not assign labels\n");
-	printf("   -nr         : skip recursive argument analysis (implies -nl)\n");
+	printf("   -nr         : skip argument analysis (implies -nl)\n");
 	printf("   -a <addr>   : set base address\n");
 	printf("   -v          : print version and exit\n");
 	printf("   -h          : print help and exit\n");
@@ -49,17 +49,24 @@ void usage()
 // -----------------------------------------------------------------------
 int parse_args(int argc, char **argv)
 {
+	char *oa;
 	int option;
+
 	while ((option = getopt(argc, argv,"o:n:a:vh")) != -1) {
 		switch (option) {
 			case 'n':
-				if (strlen(optarg) > 1) return -1;
-				switch (*optarg) {
-					case 'a': skip_addresses = 1; break;
-					case 'v': skip_values = 1; break;
-					case 'l': skip_labels = 1; break;
-					case 'r': skip_analysis = 1; break;
-					default: return -1;
+				oa = optarg;
+				while (oa && *oa){
+					switch (*oa) {
+						case 'a': skip_addresses = 1; break;
+						case 'v': skip_values = 1; break;
+						case 'l': skip_labels = 1; break;
+						case 'r': skip_analysis = 1; break;
+						default: 
+							fprintf(stderr, "Unknown parameter for -n: '%c'\n", *oa);
+							return -1;
+					}
+					oa++;
 				}
 				break;
 			case 'h':
@@ -84,7 +91,7 @@ int parse_args(int argc, char **argv)
 	if (optind == argc-1) {
 		input_file = argv[optind];
 	} else {
-		printf("Wrong usage.\n");
+		printf("Missing input file name.\n");
 		return -1;
 	}
 

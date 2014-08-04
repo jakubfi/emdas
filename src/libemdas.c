@@ -471,10 +471,7 @@ static void emdas_drop_refs(struct emdas_ref *ref)
 // -----------------------------------------------------------------------
 static void emdas_add_label(struct emdas *emd, uint16_t addr, char *prefix)
 {
-	int len = strlen(prefix) + 4 + 1;
-	free(CELL(addr)->label);
-	CELL(addr)->label = malloc(len);
-	snprintf(CELL(addr)->label, len, "%s%04x", prefix, addr);
+	// TODO: handle instruction/arg split by label
 }
 
 // -----------------------------------------------------------------------
@@ -705,7 +702,7 @@ static int emdas_normarg_format(char *buf, int maxlen, char **elem_format, struc
 	// rC == 0, value in 2nd arg
 	} else {
 		struct emdas_cell *arg = emdas_get_ref(cell, REF_ARG);
-		// TODO: handle arg split from op by label on arg
+		// TODO: handle instruction/arg split by label
 		if (use_name && cell->arg_name) {
 			pos += snprintf(buf+pos, maxlen-pos, "%s", cell->arg_name);
 		} else if (!arg) {
