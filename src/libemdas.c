@@ -171,7 +171,8 @@ typedef void (*emdas_analyzer_fun)(struct emdas *emd, struct emdas_cell *cell);
 struct emdas_analyzer {
 	int match;
 	int nomatch;
-	int stop;
+	int required;
+	int final;
 	emdas_analyzer_fun fun;
 };
 
@@ -179,22 +180,26 @@ struct emdas_analyzer emdas_analyzers[] = {
 	{
 		.match = FL_ARG_NORM | FL_2WORD,
 		.nomatch = 0,
-		.stop = 0,
+		.required = 1,
+		.final = 0,
 		.fun = emdas_analyze_2arg
 	}, {
 		.match = FL_INS_IO,
 		.nomatch = 0,
-		.stop = 1,
+		.required = 0,
+		.final = 1,
 		.fun = emdas_analyze_io
 	}, {
 		.match = FL_2WORD | FL_ARG_A_DWORD,
 		.nomatch = FL_MOD_B | FL_MOD_D | FL_PREMOD,
-		.stop = 1,
+		.required = 0,
+		.final = 1,
 		.fun = emdas_analyze_dword
 	}, {
 		.match = FL_2WORD | FL_ARG_A_FLOAT,
 		.nomatch = FL_MOD_B | FL_MOD_D | FL_PREMOD,
-		.stop = 1,
+		.required = 0,
+		.final = 1,
 		.fun = emdas_analyze_float
 	}, {
 		.fun = NULL
@@ -214,6 +219,9 @@ struct emdas * emdas_init()
 		emdas_shutdown(emd);
 		return NULL;
 	}
+
+	// analyze by default
+	emd->features = FEAT_ANALYZE;
 
 	return emd;
 }
@@ -309,11 +317,11 @@ struct emdas_cell * emdas_get_cell(struct emdas *emd, uint16_t addr)
 
 	// check if we need to (re-)generate text representation
 	if (!cell->text || (cell->syn_generation != emd->syn_generation)) {
-		PDEBUG(addr, "Updating text cache");
+		//PDEBUG(addr, "Updating text cache");
 		cell->text = emdas_make_text(cell, ADDR(cell), emd->elem_format, emd->features);
 	    cell->syn_generation = emd->syn_generation;
 	} else {
-		PDEBUG(addr, "Using cached text");
+		//PDEBUG(addr, "Using cached text");
 	}
 
 	return cell;
@@ -544,10 +552,12 @@ static void emdas_analyze(struct emdas *emd, struct emdas_cell *cell)
 		// run analyzers
 		struct emdas_analyzer *an = emdas_analyzers;
 		while (an && an->fun) {
-			if (FMATCH(cell->flags, an->match) && FNONE(cell->flags, an->nomatch)) {
-				an->fun(emd, cell);
+			if (FMATCH(emd->features, FEAT_ANALYZE) || (an->required)) {
+				if (FMATCH(cell->flags, an->match) && FNONE(cell->flags, an->nomatch)) {
+					an->fun(emd, cell);
+				}
 			}
-			if (an->stop) break;
+			if (an->final) break;
 			an++;
 		}
 

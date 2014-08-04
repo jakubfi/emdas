@@ -199,15 +199,16 @@ struct emdas {
 // --- features ----------------------------------------------------------
 
 enum emdas_features {
-	FEAT_NONE	= 0,
-	FEAT_ADDR	= 1 << 0,
-	FEAT_LABELS	= 1 << 1,
-	FEAT_UCASE	= 1 << 2,
+	FEAT_NONE		= 0,
+	FEAT_ADDR		= 1 << 0,
+	FEAT_LABELS		= 1 << 1,
+	FEAT_UCASE		= 1 << 2,
+	FEAT_ANALYZE	= 1 << 3,
 };
 
 // features convenience macros
 #define FEAT_SYN (FEAT_ADDR | FEAT_LABELS | FEAT_UCASE)
-#define FEAT_ALL (FEAT_SYN)
+#define FEAT_ALL (FEAT_SYN | FEAT_ANALYZE)
 
 // --- prototypes --------------------------------------------------------
 

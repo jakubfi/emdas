@@ -28,7 +28,7 @@ int isize;
 char *input_file;
 char *output_file;
 
-int skip_labels, skip_addresses, skip_values;
+int skip_labels, skip_addresses, skip_values, skip_analysis;
 int base_addr;
 
 // -----------------------------------------------------------------------
@@ -40,6 +40,7 @@ void usage()
 	printf("   -na         : do not include adresses in asm output\n");
 	printf("   -nv         : do not include values in asm output\n");
 	printf("   -nl         : do not assign labels\n");
+	printf("   -nr         : skip recursive argument analysis (implies -nl)\n");
 	printf("   -a <addr>   : set base address\n");
 	printf("   -v          : print version and exit\n");
 	printf("   -h          : print help and exit\n");
@@ -57,6 +58,7 @@ int parse_args(int argc, char **argv)
 					case 'a': skip_addresses = 1; break;
 					case 'v': skip_values = 1; break;
 					case 'l': skip_labels = 1; break;
+					case 'r': skip_analysis = 1; break;
 					default: return -1;
 				}
 				break;
@@ -160,9 +162,19 @@ int main(int argc, char **argv)
 	}
 
 	emd = emdas_init();
-	emdas_set_features(emd, FEAT_ALL & ~FEAT_UCASE);
 	if (!emd) {
 		printf("Cannot setup disassembler.\n");
+		goto cleanup;
+	}
+
+	int features = FEAT_ALL & ~FEAT_UCASE;
+	if (skip_analysis) {
+		features &= ~FEAT_ANALYZE;
+	}
+
+	res = emdas_set_features(emd, features);
+	if (res) {
+		printf("Cannot set disassembler features.\n");
 		goto cleanup;
 	}
 
