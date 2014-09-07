@@ -10,12 +10,12 @@ set(EMDAS_VERSION ${EMDAS_VERSION_MAJOR}.${EMDAS_VERSION_MINOR}.${EMDAS_VERSION_
 
 include_directories(${CMAKE_SOURCE_DIR}/include)
 
-add_definitions(-O0 -Wall -std=c99 -D_XOPEN_SOURCE=700 -DEMDAS_VERSION="${EMDAS_VERSION}" -g)
+add_definitions(-Wall -std=c99 -D_XOPEN_SOURCE=700 -DEMDAS_VERSION="${EMDAS_VERSION}")
 
 if(DEBUG)
-	add_definitions(-DDEBUG)
+	add_definitions(-DDEBUG -g -O0)
 else(DEBUG)
-	add_definitions(-DNODEBUG)
+	add_definitions(-DNDEBUG -O2)
 endif(DEBUG)
 
 add_subdirectory(src build)
