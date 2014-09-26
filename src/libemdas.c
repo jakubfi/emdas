@@ -33,7 +33,7 @@ static int dtree_level = 0;
 // -----------------------------------------------------------------------
 static void pdebug(uint16_t addr, char *format, ...)
 {
-	fprintf(stderr, "debug @ 0x%04x ^%-3i ", addr, dtree_level);
+	fprintf(stderr, "debug ^%i @ 0x%04x ", dtree_level, addr);
 	for (int i=0 ; i<dtree_level ; i++) {
 		fprintf(stderr, "   ");
 	}
@@ -158,17 +158,19 @@ static const char *emdas_ins_format[SYN_INS_MAX] = {
 };
 
 static char * emdas_make_text(struct emdas_cell *cell, uint16_t addr, char **elem_format, unsigned features);
-static void emdas_drop_refs(struct emdas_ref *ref);
+static void emdas_drop_rels(struct emdas_rel *rel);
 
 // Analyzers
 static void emdas_analyze_2arg(struct emdas *emd, struct emdas_cell *cell);
 static void emdas_analyze_io(struct emdas *emd, struct emdas_cell *cell);
 static void emdas_analyze_dword(struct emdas *emd, struct emdas_cell *cell);
 static void emdas_analyze_float(struct emdas *emd, struct emdas_cell *cell);
+static void emdas_analyze_jump(struct emdas *emd, struct emdas_cell *cell);
 
 typedef void (*emdas_analyzer_fun)(struct emdas *emd, struct emdas_cell *cell);
 
 struct emdas_analyzer {
+	const char *name;
 	int match;
 	int nomatch;
 	int required;
@@ -178,25 +180,36 @@ struct emdas_analyzer {
 
 struct emdas_analyzer emdas_analyzers[] = {
 	{
+		.name = "2nd arg",
 		.match = FL_ARG_NORM | FL_2WORD,
 		.nomatch = 0,
 		.required = 1,
 		.final = 0,
 		.fun = emdas_analyze_2arg
 	}, {
+		.name = "Jump",
+		.match = FL_2WORD | FL_ADDR_JUMP,
+		.nomatch = FL_MOD_B | FL_MOD_D | FL_PREMOD,
+		.required = 0,
+		.final = 1,
+		.fun = emdas_analyze_jump
+	}, {
+		.name = "Dword",
+		.match = FL_2WORD | FL_ADDR_DWORD,
+		.nomatch = FL_MOD_B | FL_MOD_D | FL_PREMOD,
+		.required = 0,
+		.final = 1,
+		.fun = emdas_analyze_dword
+	}, {
+		.name = "I/O",
 		.match = FL_INS_IO,
 		.nomatch = 0,
 		.required = 0,
 		.final = 1,
 		.fun = emdas_analyze_io
 	}, {
-		.match = FL_2WORD | FL_ARG_A_DWORD,
-		.nomatch = FL_MOD_B | FL_MOD_D | FL_PREMOD,
-		.required = 0,
-		.final = 1,
-		.fun = emdas_analyze_dword
-	}, {
-		.match = FL_2WORD | FL_ARG_A_FLOAT,
+		.name = "Float",
+		.match = FL_2WORD | FL_ADDR_FLOAT,
 		.nomatch = FL_MOD_B | FL_MOD_D | FL_PREMOD,
 		.required = 0,
 		.final = 1,
@@ -239,8 +252,10 @@ void emdas_shutdown(struct emdas *emd)
 		free(emd->cells[i].text);
 		free(emd->cells[i].label);
 		free(emd->cells[i].arg_name);
-		emdas_drop_refs(emd->cells[i].ref);
-		emdas_drop_refs(emd->cells[i].bref);
+		emdas_drop_rels(emd->cells[i].args);
+		emdas_drop_rels(emd->cells[i].anchors);
+		emdas_drop_rels(emd->cells[i].branches);
+		emdas_drop_rels(emd->cells[i].origins);
 	}
 
 	free(emd);
@@ -396,37 +411,32 @@ static int emdas_fill_ins(struct emdas *emd, uint16_t addr, const struct opdef *
 }
 
 // -----------------------------------------------------------------------
-static int emdas_add_ref(struct emdas *emd, struct emdas_cell *cell, uint16_t dest_addr, unsigned type)
+static int emdas_add_rel(struct emdas *emd, struct emdas_cell *cell, uint16_t dest_addr, struct emdas_rel **rrel, unsigned type)
 {
-	// forward
-	PDEBUG(ADDR(cell), "Added ref -> @ 0x%04x (type: %i)", dest_addr, type);
-	struct emdas_ref *ref = malloc(sizeof(struct emdas_ref));
-	if (!ref) return -1;
-	ref->type = type;
-	ref->cell = CELL(dest_addr);
-	ref->next = cell->ref;
-	cell->ref = ref;
+	PDEBUG(ADDR(cell), "Added rel -> @ 0x%04x (type: %i)", dest_addr, type);
+	struct emdas_rel *rel = malloc(sizeof(struct emdas_rel));
+	if (!rel) return -1;
+	rel->type = type;
+	rel->cell = CELL(dest_addr);
+	rel->next = (*rrel);
+	(*rrel) = rel;
+	return 0;
+}
 
-	// reverse
-	if (type > REF_STRONG) {
-		PDEBUG(ADDR(cell), "Added bref <- @ 0x%04x (type: %i)", dest_addr, type);
-		struct emdas_ref *bref = malloc(sizeof(struct emdas_ref));
-		if (!bref) return -1;
-		bref->type = type;
-		bref->cell = cell;
-		bref->next = emd->cells[dest_addr].bref;
-		emd->cells[dest_addr].bref = bref;
-	}
 
+// -----------------------------------------------------------------------
+static int emdas_add_arg(struct emdas *emd, struct emdas_cell *cell, uint16_t dest_addr, unsigned type)
+{
+	if (emdas_add_rel(emd, cell, dest_addr, &(cell->args), type)) return -1;
+	if (emdas_add_rel(emd, CELL(dest_addr), ADDR(cell), &(CELL(dest_addr)->anchors), type)) return -1;
 	return 0;
 }
 
 // -----------------------------------------------------------------------
-struct emdas_cell * emdas_get_ref(struct emdas_cell *cell, unsigned type)
+struct emdas_cell * emdas_get_rel(struct emdas_rel *r, unsigned type)
 {
-	if (!cell) return NULL;
+	if (!r) return NULL;
 
-	struct emdas_ref *r = cell->ref;
 	while (r) {
 		if (r->type == type) {
 			return r->cell;
@@ -438,10 +448,10 @@ struct emdas_cell * emdas_get_ref(struct emdas_cell *cell, unsigned type)
 }
 
 // -----------------------------------------------------------------------
-static void emdas_drop_ref(struct emdas_ref **ref, struct emdas_cell *cell)
+static void emdas_drop_rel(struct emdas_rel **rel, struct emdas_cell *cell)
 {
-	struct emdas_ref **r = ref;
-	struct emdas_ref *prev = NULL;
+	struct emdas_rel **r = rel;
+	struct emdas_rel *prev = NULL;
 
 	while (r && *r) {
 		if ((*r)->cell == cell) {
@@ -457,10 +467,10 @@ static void emdas_drop_ref(struct emdas_ref **ref, struct emdas_cell *cell)
 }
 
 // -----------------------------------------------------------------------
-static void emdas_drop_refs(struct emdas_ref *ref)
+static void emdas_drop_rels(struct emdas_rel *rel)
 {
-	struct emdas_ref *r = ref;
-	struct emdas_ref *nextr;
+	struct emdas_rel *r = rel;
+	struct emdas_rel *nextr;
 	while (r) {
 		nextr = r->next;
 		free(r);
@@ -469,25 +479,15 @@ static void emdas_drop_refs(struct emdas_ref *ref)
 }
 
 // -----------------------------------------------------------------------
-static void emdas_add_label(struct emdas *emd, uint16_t addr, char *prefix)
-{
-	// TODO: handle instruction/arg split by label
-}
-
-// -----------------------------------------------------------------------
 static void emdas_analyze_2arg(struct emdas *emd, struct emdas_cell *cell)
 {
-	PDEBUG(ADDR(cell), "analyze(): 2nd word @ 0x%04x", ADDR(cell)+1);
-
 	emdas_fill_arg(emd, ADDR(cell)+1);
-	emdas_add_ref(emd, cell, ADDR(cell)+1, REF_ARG);
+	emdas_add_arg(emd, cell, ADDR(cell)+1, REL_ARG);
 }
 
 // -----------------------------------------------------------------------
 static void emdas_analyze_io(struct emdas *emd, struct emdas_cell *cell)
 {
-	PDEBUG(ADDR(cell), "analyze(): I/O instruction");
-
 	int ao = ADDR(cell) + 1;
 	if (FMATCH(cell->flags, FL_2WORD)) ao++;
 
@@ -495,44 +495,34 @@ static void emdas_analyze_io(struct emdas *emd, struct emdas_cell *cell)
 	emdas_fill_data(emd, ao+1);
 	emdas_fill_data(emd, ao+2);
 	emdas_fill_data(emd, ao+3);
-	emdas_add_ref(emd, cell, ao+0, REF_IO_NO);
-	emdas_add_ref(emd, cell, ao+1, REF_IO_EN);
-	emdas_add_ref(emd, cell, ao+2, REF_IO_OK);
-	emdas_add_ref(emd, cell, ao+3, REF_IO_PE);
-	emdas_add_ref(emd, cell, CELL(ao+0)->v, REF_JUMP_IO_NO);
-	emdas_add_ref(emd, cell, CELL(ao+1)->v, REF_JUMP_IO_EN);
-	emdas_add_ref(emd, cell, CELL(ao+2)->v, REF_JUMP_IO_OK);
-	emdas_add_ref(emd, cell, CELL(ao+3)->v, REF_JUMP_IO_PE);
-	emdas_add_label(emd, CELL(ao+0)->v, "io_no_");
-	emdas_add_label(emd, CELL(ao+1)->v, "io_en_");
-	emdas_add_label(emd, CELL(ao+2)->v, "io_ok_");
-	emdas_add_label(emd, CELL(ao+3)->v, "io_pe_");
+	emdas_add_arg(emd, cell, ao+0, REL_IO_NO);
+	emdas_add_arg(emd, cell, ao+1, REL_IO_EN);
+	emdas_add_arg(emd, cell, ao+2, REL_IO_OK);
+	emdas_add_arg(emd, cell, ao+3, REL_IO_PE);
 }
 
 // -----------------------------------------------------------------------
 static void emdas_analyze_dword(struct emdas *emd, struct emdas_cell *cell)
 {
-	struct emdas_cell *arg = emdas_get_ref(cell, REF_ARG);
+	struct emdas_cell *arg = emdas_get_rel(cell->args, REL_ARG);
 	assert(arg);
-	PDEBUG(ADDR(cell), "analyze(): DWORD argument");
 	emdas_fill_data(emd, arg->v+0);
 	emdas_fill_data(emd, arg->v+1);
-	emdas_add_ref(emd, cell, arg->v+0, REF_DWORD1);
-	emdas_add_ref(emd, cell, arg->v+1, REF_DWORD2);
 }
 
 // -----------------------------------------------------------------------
 static void emdas_analyze_float(struct emdas *emd, struct emdas_cell *cell)
 {
-	struct emdas_cell *arg = emdas_get_ref(cell, REF_ARG);
+	struct emdas_cell *arg = emdas_get_rel(cell->args, REL_ARG);
 	assert(arg);
-	PDEBUG(ADDR(cell), "analyze(): FLOAT argument");
 	emdas_fill_data(emd, arg->v+0);
 	emdas_fill_data(emd, arg->v+1);
 	emdas_fill_data(emd, arg->v+2);
-	emdas_add_ref(emd, cell, arg->v+0, REF_FLOAT1);
-	emdas_add_ref(emd, cell, arg->v+1, REF_FLOAT2);
-	emdas_add_ref(emd, cell, arg->v+2, REF_FLOAT3);
+}
+
+// -----------------------------------------------------------------------
+static void emdas_analyze_jump(struct emdas *emd, struct emdas_cell *cell)
+{
 }
 
 // -----------------------------------------------------------------------
@@ -551,10 +541,15 @@ static void emdas_analyze(struct emdas *emd, struct emdas_cell *cell)
 		while (an && an->fun) {
 			if (FMATCH(emd->features, FEAT_ANALYZE) || (an->required)) {
 				if (FMATCH(cell->flags, an->match) && FNONE(cell->flags, an->nomatch)) {
+					PDEBUG(ADDR(cell), "Running analyzer: %s", an->name);
 					an->fun(emd, cell);
+					if (an->final) break;
+				} else {
+					PDEBUG(ADDR(cell), "Unmatched analyzer: %s", an->name);
 				}
+			} else {
+				PDEBUG(ADDR(cell), "Skipped analyzer: %s", an->name);
 			}
-			if (an->final) break;
 			an++;
 		}
 
@@ -575,46 +570,46 @@ static void emdas_process(struct emdas *emd, struct emdas_cell *cell)
 	dtree_level++;
 #endif
 
-	struct emdas_ref *ref_stored;
-	struct emdas_ref *refp;
+	struct emdas_rel *rel_stored;
+	struct emdas_rel *rel;
 
-	// cell has parents -> start analysis down from each parent
-	if (cell->bref) {
-		PDEBUG(ADDR(cell), "---- CELL HAS <- BREFS ----");
-		// store parents, nullify all parent links so we don't loop
-		ref_stored = refp = cell->bref;
-		cell->bref = NULL;
-		// process each parent
-		while (refp) {
-			PDEBUG(ADDR(cell), "bref: <- @ 0x%04x (type %i)", ADDR(refp->cell), refp->type);
-			emdas_process(emd, refp->cell);
-			refp = refp->next;
+	// cell has anchors -> start analysis from each anchor down
+	if (cell->anchors) {
+		PDEBUG(ADDR(cell), "---- CELL HAS ANCHORS ----");
+		// store anchors, nullify all anchors so we don't loop
+		rel_stored = rel = cell->anchors;
+		cell->anchors = NULL;
+		// process each anchor
+		while (rel) {
+			PDEBUG(ADDR(cell), "anchor: <- @ 0x%04x (type %i)", ADDR(rel->cell), rel->type);
+			emdas_process(emd, rel->cell);
+			rel = rel->next;
 		}
-		emdas_drop_refs(ref_stored);
-		PDEBUG(ADDR(cell), "---- <- BREFS DONE ----");
+		emdas_drop_rels(rel_stored);
+		PDEBUG(ADDR(cell), "---- <- ANCHORS DONE ----");
 
-	// cell has children -> reprocess children
-	// (so we have clean state, those can be no longer children after we process the parent)
-	} else if (cell->ref) {
-		PDEBUG(ADDR(cell), "---- CELL HAS -> REFS ----");
-		// store all children, nullify all children
-		ref_stored = refp = cell->ref;
-		cell->ref = NULL;
-		// process each child (skip weak refs)
-		while (refp && (refp->type > REF_STRONG)) {
-			PDEBUG(ADDR(cell), "ref: -> @ 0x%04x (type %i)", ADDR(refp->cell), refp->type);
-			// drop bref to parent so we don't loop
-			emdas_drop_ref(&refp->cell->bref, cell);
-			emdas_process(emd, refp->cell);
-			refp = refp->next;
+	// cell has args -> reprocess args
+	// (so we have clean state, those can be no longer args after we process the anchor)
+	} else if (cell->args) {
+		PDEBUG(ADDR(cell), "---- CELL HAS ARGS ----");
+		// store all args, nullify all args
+		rel_stored = rel = cell->args;
+		cell->args = NULL;
+		// process each arg
+		while (rel && (rel->type > REL_STRONG)) {
+			PDEBUG(ADDR(cell), "arg: -> @ 0x%04x (type %i)", ADDR(rel->cell), rel->type);
+			// drop relations to anchor so we don't loop
+			emdas_drop_rel(&rel->cell->anchors, cell);
+			emdas_process(emd, rel->cell);
+			rel = rel->next;
 		}
-		emdas_drop_refs(ref_stored);
-		PDEBUG(ADDR(cell), "---- <- REFS DONE ----");
+		emdas_drop_rels(rel_stored);
+		PDEBUG(ADDR(cell), "---- <- ARGS DONE ----");
 
 		// finally, analyze parent (no need to process recursively)
 		emdas_analyze(emd, cell);
 
-	// no b/refs -> analyze
+	// no relations -> analyze
 	} else {
 		emdas_analyze(emd, cell);
 	}
@@ -701,7 +696,7 @@ static int emdas_normarg_format(char *buf, int maxlen, char **elem_format, struc
 		pos += snprintf(buf+pos, maxlen-pos, elem_format[SYN_ELEM_REG], _C(cell->v));
 	// rC == 0, value in 2nd arg
 	} else {
-		struct emdas_cell *arg = emdas_get_ref(cell, REF_ARG);
+		struct emdas_cell *arg = emdas_get_rel(cell->args, REL_ARG);
 		// TODO: handle instruction/arg split by label
 		if (use_name && cell->arg_name) {
 			pos += snprintf(buf+pos, maxlen-pos, "%s", cell->arg_name);
@@ -911,11 +906,11 @@ int __emdas_dump_cell(FILE *f, struct emdas_cell *cell)
 		(cell->flags & FL_MOD_B) ? "MOD_B, " : "",
 		(cell->flags & FL_PREMOD) ? "PREMOD, " : "",
 
-		(cell->flags & FL_ARG_A_JUMP) ? "A_JUMP, " : "",
-		(cell->flags & FL_ARG_A_BYTE) ? "A_BYTE, " : "",
-		(cell->flags & FL_ARG_A_WORD) ? "A_WORD, " : "",
-		(cell->flags & FL_ARG_A_DWORD) ? "A_DWORD, " : "",
-		(cell->flags & FL_ARG_A_FLOAT) ? "A_FLOAT, " : ""
+		(cell->flags & FL_ADDR_JUMP) ? "A_JUMP, " : "",
+		(cell->flags & FL_ADDR_BYTE) ? "A_BYTE, " : "",
+		(cell->flags & FL_ADDR_WORD) ? "A_WORD, " : "",
+		(cell->flags & FL_ADDR_DWORD) ? "A_DWORD, " : "",
+		(cell->flags & FL_ADDR_FLOAT) ? "A_FLOAT, " : ""
 	);
 	fprintf(f, "Disassm    : %s\n", cell->text);
 

@@ -65,38 +65,38 @@ enum emdas_syn_elem {
 	SYN_ELEM_MAX
 };
 
-// --- ref ---------------------------------------------------------------
+// --- relations ---------------------------------------------------------
 
-struct emdas_ref {
+struct emdas_rel {
 	int type;
 	struct emdas_cell *cell;
-	struct emdas_ref *next;
+	struct emdas_rel *next;
 };
 
-enum emdas_refs {
-	// weak refs
-	REF_JUMP,
-	REF_JUMP_IO_NO,
-	REF_JUMP_IO_EN,
-	REF_JUMP_IO_OK,
-	REF_JUMP_IO_PE,
-	REF_CALL,
-	REF_BRANCH,
-	REF_WORD,
-	REF_DWORD1,
-	REF_DWORD2,
-	REF_FLOAT1,
-	REF_FLOAT2,
-	REF_FLOAT3,
+enum emdas_rels {
+	// origin-branch relations
+	REL_JUMP,
+	REL_JUMP_IO_NO,
+	REL_JUMP_IO_EN,
+	REL_JUMP_IO_OK,
+	REL_JUMP_IO_PE,
+	REL_CALL,
+	REL_BRANCH,
+	REL_WORD,
+	REL_DWORD1,
+	REL_DWORD2,
+	REL_FLOAT1,
+	REL_FLOAT2,
+	REL_FLOAT3,
 
-	REF_STRONG,
+	REL_STRONG,
 
-	// strong refs
-	REF_ARG,
-	REF_IO_OK,
-	REF_IO_EN,
-	REF_IO_NO,
-	REF_IO_PE,
+	// anchor-argument relations
+	REL_ARG,
+	REL_IO_OK,
+	REL_IO_EN,
+	REL_IO_NO,
+	REL_IO_PE,
 };
 
 // --- cell --------------------------------------------------------------
@@ -116,8 +116,11 @@ struct emdas_cell {
 	int syn_generation;
 	char *text;
 
-	struct emdas_ref *ref;	// forward references
-	struct emdas_ref *bref; // backward references
+	struct emdas_rel *args;
+	struct emdas_rel *anchors;
+
+	struct emdas_rel *branches;
+	struct emdas_rel *origins;
 };
 
 // cell types
@@ -172,18 +175,18 @@ enum emdas_flags {
 	FL_PREMOD		= 1 << 14,	// instruction is premodified
 
 	// normarg address flags
-	FL_ARG_A_JUMP	= 1 << 15,	// argument is a jump address
-	FL_ARG_A_BYTE	= 1 << 16,	// argument is a byte address
-	FL_ARG_A_WORD	= 1 << 17,	// argument is a word address
-	FL_ARG_A_DWORD	= 1 << 18,	// argument is a dword address
-	FL_ARG_A_FLOAT	= 1 << 19,	// argument is a float address
+	FL_ADDR_JUMP	= 1 << 15,	// argument is a jump address
+	FL_ADDR_BYTE	= 1 << 16,	// argument is a byte address
+	FL_ADDR_WORD	= 1 << 17,	// argument is a word address
+	FL_ADDR_DWORD	= 1 << 18,	// argument is a dword address
+	FL_ADDR_FLOAT	= 1 << 19,	// argument is a float address
 };
 
 // flags convenience macros
 
 #define FL_ARG_SHORT (FL_ARG_SHORT4 | FL_ARG_SHORT7 | FL_ARG_SHORT8)
 #define FL_ARG_IMMEDIATE (FL_ARG_SHORT | FL_ARG_2WORD)
-#define FL_ARG_INDIRECT (FL_ARG_A_BYTE | FL_ARG_A_WORD | FL_ARG_A_DWORD | FL_ARG_A_FLOAT)
+#define FL_ARG_INDIRECT (FL_ADDR_BYTE | FL_ADDR_WORD | FL_ADDR_DWORD | FL_ADDR_FLOAT)
 
 // --- emdas -------------------------------------------------------------
 
@@ -221,7 +224,7 @@ int emdas_reset_syntax(struct emdas *emd);
 unsigned emdas_get_features(struct emdas *emd);
 int emdas_set_features(struct emdas *emd, unsigned features);
 
-struct emdas_cell * emdas_get_ref(struct emdas_cell *cell, unsigned type);
+struct emdas_cell * emdas_get_rel(struct emdas_rel *r, unsigned type);
 
 int emdas_import_word(struct emdas *emd, uint16_t addr, uint16_t word);
 int emdas_import_tab(struct emdas *emd, uint16_t addr, int size, uint16_t *tab);

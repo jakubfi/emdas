@@ -122,7 +122,7 @@ int write_asm(FILE *f, struct emdas *emd, uint16_t base_addr, uint16_t size)
 		// comment
 		if ((!skip_values) && ((cell->type != CELL_DATA) || (cell->arg_name))) {
 			if ((cell->flags & FL_2WORD)) {
-				struct emdas_cell *arg = emdas_get_ref(cell, REF_ARG);
+				struct emdas_cell *arg = emdas_get_rel(cell->args, REL_ARG);
 				if (arg) {
 					pos += snprintf(buf+pos, bsize-pos, " ; .word 0x%04x, 0x%04x", cell->v, arg->v);
 				} else {

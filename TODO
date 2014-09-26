@@ -1,0 +1,2 @@
+finish scanning analyzers early when -nr is specified
+
