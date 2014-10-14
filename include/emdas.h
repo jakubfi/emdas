@@ -53,74 +53,71 @@ enum emdas_op_ids {
 
 // --- syntax ------------------------------------------------------------
 
+// Deassembler syntax elements that can be redefined by the user.
+// Syntax elements decide how various parts of disassembly should be printed.
+// Defaults are shown in comments.
+
 enum emdas_syn_elem {
-	SYN_ELEM_MNEMO,
-	SYN_ELEM_REG,
-	SYN_ELEM_ARG_7,
-	SYN_ELEM_ARG_4,
-	SYN_ELEM_ARG_8,
-	SYN_ELEM_ARG_16,
-	SYN_ELEM_ADDR,
-	SYN_ELEM_LABEL,
+	SYN_ELEM_MNEMO,		// instruction mnemonic - "%-5s"
+	SYN_ELEM_REG,		// register - "r%i"
+	SYN_ELEM_ARG_7,		// 7-bit argument - "%i"
+	SYN_ELEM_ARG_4,		// 4-bit argument - "%i"
+	SYN_ELEM_ARG_8,		// 8-bit argument - "%i"
+	SYN_ELEM_ARG_16,	// 16-bit argument - "0x%x"
+	SYN_ELEM_ADDR,		// instruction/data address - "0x%04x: "
+	SYN_ELEM_LABEL,		// instruction/data label - "%17s "
 	SYN_ELEM_MAX
 };
 
 // --- relations ---------------------------------------------------------
 
 struct emdas_rel {
-	int type;
-	struct emdas_cell *cell;
-	struct emdas_rel *next;
+	int type;					// relation type
+	struct emdas_cell *cell;	// related cell
+	struct emdas_rel *next;		// next relation in list
 };
 
-enum emdas_rels {
-	// origin-branch relations
-	REL_JUMP,
-	REL_JUMP_IO_NO,
-	REL_JUMP_IO_EN,
-	REL_JUMP_IO_OK,
-	REL_JUMP_IO_PE,
-	REL_CALL,
-	REL_BRANCH,
-	REL_WORD,
-	REL_DWORD1,
-	REL_DWORD2,
-	REL_FLOAT1,
-	REL_FLOAT2,
-	REL_FLOAT3,
+enum emdas_args {
+	ARG_2ARG,
+	ARG_IO_OK,
+	ARG_IO_EN,
+	ARG_IO_NO,
+	ARG_IO_PE
+};
 
-	REL_STRONG,
-
-	// anchor-argument relations
-	REL_ARG,
-	REL_IO_OK,
-	REL_IO_EN,
-	REL_IO_NO,
-	REL_IO_PE,
+enum emdas_refs {
+	REF_JUMP,
+	REF_IO_NO,
+	REF_IO_EN,
+	REF_IO_OK,
+	REF_IO_PE,
+	REF_CALL,
+	REF_BRANCH,
+	REF_BYTE,
+	REF_WORD,
+	REF_DWORD,
+	REF_FLOAT,
 };
 
 // --- cell --------------------------------------------------------------
 
 struct emdas_cell {
-	uint16_t v;
-	uint8_t type;
+	uint16_t v;			// cell value
+	uint8_t type;		// cell type (instruction/data/arg)
 
-	uint8_t op_id;
-	uint8_t op_group;
-	unsigned flags;
+	uint8_t op_id;		// op identifier (if cell is an instruction)
+	uint8_t op_group;	// op group (if cell is an instruction)
+	uint32_t flags;		// cell flags
 
-	int arg_short;
+	struct emdas_rel *parents, *args;	// parent instruction - arg relations (16-bit args, I/O "args")
+	struct emdas_rel *referrers, *refs;	// referrer - reference relations (jump/branch/call and word/dword/float addresses)
+
+	int syn_generation;	// syntax generation (to handle syntax changes)
+	char *text;			// cached text representation of cell (disassembly)
+
+	int arg_short;		// numeric short argument (if present)
 	char *arg_name;
-
 	char *label;
-	int syn_generation;
-	char *text;
-
-	struct emdas_rel *args;
-	struct emdas_rel *anchors;
-
-	struct emdas_rel *branches;
-	struct emdas_rel *origins;
 };
 
 // cell types
@@ -128,7 +125,7 @@ struct emdas_cell {
 enum emdas_cell_types {
 	CELL_DATA,	// cell does not match any opcode (likely data)
 	CELL_INS,	// cell matches an opcode (likely instruction)
-	CELL_ARG,	// cell contains additional instruction argument
+	CELL_ARG,	// cell contains additional 16-bit instruction argument
 };
 
 // opcode groups
@@ -164,7 +161,7 @@ enum emdas_flags {
 	FL_ARG_REGIND	= 1 << 5,	// rA register indirect addressing
 	FL_ARG_SHORT4	= 1 << 6,	// 4-bit short argument is present (SHC only)
 	FL_ARG_SHORT7	= 1 << 7,	// 7-bit short argument is present
-	FL_ARG_SHORT8	= 1 << 8,	// byte argument is present
+	FL_ARG_SHORT8	= 1 << 8,	// 8-bit short argument is present
 	FL_ARG_RELATIVE	= 1 << 9,	// short argument is PC-relative
 	FL_ARG_NORM		= 1 << 10,	// normal argument is present
 
@@ -172,7 +169,7 @@ enum emdas_flags {
 	FL_2WORD		= 1 << 11,	// normal argument uses additional word (rC=0)
 	FL_MOD_D		= 1 << 12,	// normal argument is D-modified
 	FL_MOD_B		= 1 << 13,	// normal argument is B-modified
-	FL_PREMOD		= 1 << 14,	// instruction is premodified
+	FL_MOD_PRE		= 1 << 14,	// instruction is premodified
 
 	// normarg address flags
 	FL_ADDR_JUMP	= 1 << 15,	// argument is a jump address
