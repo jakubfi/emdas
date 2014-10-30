@@ -356,7 +356,6 @@ static void emdas_fill_data(struct emdas *emd, uint16_t addr)
 	cell->type = CELL_DATA;
 
 	cell->op_id = OP_NONE;
-	cell->op_group = OP_GR_NONE;
 	cell->flags = FL_NONE;
 
 	cell->arg_short = INT_MAX;
@@ -386,7 +385,6 @@ static int emdas_fill_ins(struct emdas *emd, uint16_t addr, const struct opdef *
 
 	// copy everything, we may want to change it later on
 	cell->op_id = o->op_id;
-	cell->op_group = o->group_id;
 	cell->flags = o->flags;
 
 	// set normarg-related things
@@ -462,21 +460,23 @@ struct emdas_cell * emdas_get_rel(struct emdas_rel *r, unsigned type)
 // -----------------------------------------------------------------------
 static void emdas_drop_rel(struct emdas_rel **rel, struct emdas_cell *cell)
 {
-	struct emdas_rel **r = rel;
+	struct emdas_rel *r = *rel;
 	struct emdas_rel *prev = NULL;
 
 	assert(rel && cell);
 
-	while (r && *r) {
-		if ((*r)->cell == cell) {
+	while (r) {
+		if (r->cell == cell) {
 			if (prev) {
-				prev->next = (*r)->next;
-				free(*r);
+				prev->next = r->next;
+				free(r);
 			} else {
-				free(*r);
-				*r = NULL;
+				*rel = r->next;
+				free(r);
 			}
 		}
+		prev = r;
+		r = r->next;
 	}
 }
 
@@ -551,7 +551,8 @@ static void emdas_analyze(struct emdas *emd, struct emdas_cell *cell)
 	assert(o);
 
 	// is this an instruction?
-	if (o->op_id != OP_NONE) {
+	// if cell was marked as an argument earlier during processing (uj uj case), we won't treat is as instruction
+	if ((o->op_id != OP_NONE) && (cell->type != CELL_ARG)) {
 		PDEBUG(ADDR(cell), "ANALYZE: OP, value 0x%04x (%s)", cell->v, emdas_ilist_lcase[o->op_id]);
 		emdas_fill_ins(emd, ADDR(cell), o);
 
@@ -594,15 +595,16 @@ static void emdas_process(struct emdas *emd, struct emdas_cell *cell)
 
 	// cell has parents - start analysis from each parent down
 	if (cell->parents) {
-		PDEBUG(ADDR(cell), "---- CELL HAS PARENTS ----");
+		PDEBUG(ADDR(cell), "---- ASCENDING TO PARENTS ----");
 
 		// store all parents, nullify all parents so we don't loop
 		rel_stored = rel = cell->parents;
+		PDEBUG(ADDR(cell), "nullifying parents");
 		cell->parents = NULL;
 
 		// process each parent
 		while (rel) {
-			PDEBUG(ADDR(cell), "parent @ 0x%04x (type %i)", ADDR(rel->cell), rel->type);
+			PDEBUG(ADDR(cell), "process parent @ 0x%04x (type %i)", ADDR(rel->cell), rel->type);
 			emdas_process(emd, rel->cell);
 			rel = rel->next;
 		}
@@ -615,16 +617,18 @@ static void emdas_process(struct emdas *emd, struct emdas_cell *cell)
 		// if cell has arguments, we need to reprocess them
 		// (args can be no longer args after we process the parent)
 		if (cell->args) {
-			PDEBUG(ADDR(cell), "---- CELL HAS ARGS ----");
+			PDEBUG(ADDR(cell), "---- REPROCESSING ARGS ----");
 
 			// store all args, nullify all args (we don't need those anymore, we're gonna reprocess them)
 			rel_stored = rel = cell->args;
+			PDEBUG(ADDR(cell), "nullifying args");
 			cell->args = NULL;
 
 			// process each arg
 			while (rel) {
 				PDEBUG(ADDR(cell), "arg -> 0x%04x (type %i)", ADDR(rel->cell), rel->type);
 				// drop relation to parent so we don't loop
+				PDEBUG(ADDR(rel->cell), "dropping arg relation to parent 0x%04x", ADDR(cell));
 				emdas_drop_rel(&rel->cell->parents, cell);
 				emdas_process(emd, rel->cell);
 				rel = rel->next;
@@ -656,6 +660,11 @@ static void emdas_process(struct emdas *emd, struct emdas_cell *cell)
 
 		// finally, analyze the parent
 		// (no need to process recursively, there should be no relations at this point)
+		PDEBUG(ADDR(cell), "---- ANALYZING CELL ----");
+		if (cell->refs) printf("cell still has refs\n");
+		if (cell->referrers) printf("cell still has referrers\n");
+		if (cell->args) printf("cell still has args\n");
+		if (cell->parents) printf("cell still has parents\n");
 		emdas_analyze(emd, cell);
 	}
 
@@ -678,7 +687,11 @@ int emdas_import_word(struct emdas *emd, uint16_t addr, uint16_t word)
 	// text representation needs to be redone
 	free(cell->text);
 	cell->text = NULL;
+
 	cell->v = word;
+	// initialy, cell is always data
+	cell->type = CELL_DATA;
+
 	emdas_process(emd, cell);
 
 	return 1;
@@ -918,15 +931,11 @@ int __emdas_dump_cell(FILE *f, struct emdas_cell *cell)
 	static char *cell_type_names[] = {
 		 "DATA", "OP", "ARG"
 	};
-	static char *op_group_names[] = {
-		"NONE", "NORM", "FD", "KA1", "JS", "KA2", "C", "S", "J", "L", "G", "BN"
-	};
 
 	fprintf(f, "---------------------------------------------\n");
 	fprintf(f, "Cell type  : %s\n", cell_type_names[cell->type]);
 	fprintf(f, "Cell label : %s\n", cell->label);
 	fprintf(f, "Cell value : 0x%04x\n", cell->v);
-	fprintf(f, "OP group   : %s\n", op_group_names[cell->op_group]);
 	fprintf(f, "OP ID      : %i\n", cell->op_id);
 	fprintf(f, "Mnemo      : %s\n", emdas_ilist[cell->op_id]);
 	fprintf(f, "Registers  : rA = %i, rB = %i, rC = %i\n", _A(cell->v), _B(cell->v), _C(cell->v));

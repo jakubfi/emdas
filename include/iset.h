@@ -37,7 +37,6 @@ typedef const struct opdef * (*opfun)(uint16_t opcode);
 struct opdef {
 	uint16_t opcode;
 	int op_id;
-	int group_id;
 	opfun extop_fun;
 	unsigned flags;
 };

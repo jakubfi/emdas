@@ -106,7 +106,6 @@ struct emdas_cell {
 	uint8_t type;		// cell type (instruction/data/arg)
 
 	uint8_t op_id;		// op identifier (if cell is an instruction)
-	uint8_t op_group;	// op group (if cell is an instruction)
 	uint32_t flags;		// cell flags
 
 	struct emdas_rel *parents, *args;	// parent instruction - arg relations (16-bit args, I/O "args")
@@ -126,23 +125,6 @@ enum emdas_cell_types {
 	CELL_DATA,	// cell does not match any opcode (likely data)
 	CELL_INS,	// cell matches an opcode (likely instruction)
 	CELL_ARG,	// cell contains additional 16-bit instruction argument
-};
-
-// opcode groups
-
-enum emdas_op_groups {
-	OP_GR_NONE, // unknown group
-	OP_GR_NORM,
-	OP_GR_FD,
-	OP_GR_KA1,
-	OP_GR_JS,
-	OP_GR_KA2,
-	OP_GR_C,
-	OP_GR_S,
-	OP_GR_J,
-	OP_GR_L,
-	OP_GR_G,
-	OP_GR_BN,
 };
 
 // cell flags
