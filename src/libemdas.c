@@ -175,7 +175,7 @@ static void emdas_print_arg(struct emdas *emd, struct emdas_op *op, uint16_t *va
 		if (op->flags & EMD_FL_2WORD) {
 			// no memory
 			if (!varg) {
-				emdas_buf_s(emd->dbuf, "%s", "???");
+				emdas_buf_s(emd->dbuf, "%s", "r0");
 			// print small integers as decimal
 			} else if (*varg < 16) {
 				emdas_buf_i(emd->dbuf, "%i", *varg);
@@ -259,11 +259,19 @@ int emdas_dasm(struct emdas *emd, int nb, uint16_t addr)
 		emdas_print_arg(emd, op, varg);
 
 		// 5. print comment
-		if (emd->features & EMD_FEAT_ALTS) {
+		if ((emd->features & EMD_FEAT_ALTS) && (op->id != EMD_OP_NONE)) {
 			emdas_buf_ti(emd->dbuf, emd->tabs.alt, "; .word 0x%04x", *vop);
 			if (op->flags & EMD_FL_2WORD) {
 				if (varg) {
-					emdas_buf_i(emd->dbuf, ", 0x%04x", *varg);
+					struct emdas_op *aop = emd->ops + *varg;
+					if (aop->id != EMD_OP_NONE) {
+						emdas_buf_s(emd->dbuf, "%s", " ; ");
+						emdas_print_op(emd, aop);
+						emdas_buf_c(emd->dbuf, ' ');
+						emdas_print_arg(emd, aop, NULL);
+					} else {
+						emdas_buf_i(emd->dbuf, ", 0x%04x", aop->v);
+					}
 				} else {
 					emdas_buf_s(emd->dbuf, ", %s", "???");
 				}
