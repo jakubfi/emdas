@@ -245,6 +245,7 @@ static int emdas_iset_register_op(struct emdas_op *op_tab, uint16_t opcode, uint
 
 		dop->id = op->id;
 		dop->flags = op->flags;
+		dop->v = dopcode;
 
 		// set norm arg flags
 		if (dop->flags & EMD_FL_ARG_NORM) {

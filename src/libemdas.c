@@ -47,7 +47,7 @@ struct emdas *emdas_create(int iset_type, emdas_getfun getfun)
 
 	emd->memget = getfun;
 	emdas_set_features(emd, EMD_FEAT_ADDR | EMD_FEAT_LABELS | EMD_FEAT_ALTS);
-	emdas_set_tabs(emd, 0, 10, 20, 25, 50);
+	emdas_set_tabs(emd, 0, 10, 20, 26, 50);
 
 	return emd;
 
@@ -125,82 +125,105 @@ static int emdas_print_flags(struct emdas_buf *buf, uint16_t flags)
 }
 
 // -----------------------------------------------------------------------
-static void emdas_print_arg(struct emdas_buf *buf, uint16_t vop, struct emdas_op *op, uint16_t *varg)
+static void emdas_print_arg(struct emdas *emd, struct emdas_op *op, uint16_t *varg)
 {
+	if (!op) return;
+
+	// .word "argument"
+	if (op->id == EMD_OP_NONE) {
+		emdas_buf_i(emd->dbuf, "0x%04x", op->v);
+		return;
+	}
+
 	// register argument
 	if (op->flags & EMD_FL_ARG_REG) {
 		if (op->flags & EMD_FL_ARG2) {
 			// arguments continue
-			emdas_buf_i(buf, "r%i, ", _A(vop));
+			emdas_buf_i(emd->dbuf, "r%i, ", _A(op->v));
 		} else {
 			// register is the only argument
-			emdas_buf_i(buf, "r%i", _A(vop));
+			emdas_buf_i(emd->dbuf, "r%i", _A(op->v));
 			return;
 		}
 	}
 
 	// short 4-bit argument
 	if (op->flags & EMD_FL_ARG_SHORT4) {
-		emdas_buf_i(buf, "%i", _t(vop));
+		emdas_buf_i(emd->dbuf, "%i", _t(op->v));
 
 	// short 7-bit argument
 	} else if (op->flags & EMD_FL_ARG_SHORT7) {
-		emdas_buf_i(buf, "%i", _T(vop));
+		emdas_buf_i(emd->dbuf, "%i", _T(op->v));
 
 	// short 8-bit argument
 	} else if (op->flags & EMD_FL_ARG_SHORT8) {
-		uint16_t arg = _b(vop);
+		uint16_t arg = _b(op->v);
 		// BRC and BLC args always refer to CPU flags
 		if (op->flags & EMD_FL_ARG_FLAGS) {
 			// correction for BLC argument
 			if (op->id == EMD_OP_BLC) arg <<= 8;
-			emdas_print_flags(buf, arg);
+			emdas_print_flags(emd->dbuf, arg);
 		} else {
-			emdas_buf_i(buf, "%d", arg);
+			emdas_buf_i(emd->dbuf, "%d", arg);
 		}
 
 	// normal argument
 	} else if (op->flags & EMD_FL_ARG_NORM) {
-		if (op->flags & EMD_FL_MOD_D) emdas_buf_c(buf, '[');
+		if (op->flags & EMD_FL_MOD_D) emdas_buf_c(emd->dbuf, '[');
 
 		// 2nd arg
 		if (op->flags & EMD_FL_2WORD) {
 			// no memory
 			if (!varg) {
-				emdas_buf_s(buf, "%s", "???");
+				emdas_buf_s(emd->dbuf, "%s", "???");
 			// print small integers as decimal
 			} else if (*varg < 16) {
-				emdas_buf_i(buf, "%i", *varg);
+				emdas_buf_i(emd->dbuf, "%i", *varg);
 			} else {
 				// arg refers to CPU flags
 				if (op->flags & EMD_FL_ARG_FLAGS) {
-					emdas_print_flags(buf, *varg);
+					emdas_print_flags(emd->dbuf, *varg);
 				// hex constant
 				} else {
-					emdas_buf_i(buf, "0x%04x", *varg);
+					emdas_buf_i(emd->dbuf, "0x%04x", *varg);
 				}
 			}
 
 		// rC
 		} else {
-			emdas_buf_i(buf, "r%d", _C(vop));
+			emdas_buf_i(emd->dbuf, "r%d", _C(op->v));
 		}
 
 		// rB
 		if (op->flags & EMD_FL_MOD_B) {
-			emdas_buf_i(buf, "+r%d", _B(vop));
+			emdas_buf_i(emd->dbuf, "+r%d", _B(op->v));
 		}
 
-		if (op->flags & EMD_FL_MOD_D) emdas_buf_c(buf, ']');
+		if (op->flags & EMD_FL_MOD_D) emdas_buf_c(emd->dbuf, ']');
+	}
+}
+
+// -----------------------------------------------------------------------
+static void emdas_print_op(struct emdas *emd, struct emdas_op *op)
+{
+	if (op) {
+		int clen = emdas_buf_s(emd->dbuf, "%s", emdas_iset_mnemo[op->id]);
+		if (emd->features & EMD_FEAT_LMNEMO) {
+			emdas_buf_tolower(emd->dbuf, clen);
+		}
+	} else {
+		// cannot read memory
+		emdas_buf_s(emd->dbuf, "%s", "???");
 	}
 }
 
 // -----------------------------------------------------------------------
 int emdas_dasm(struct emdas *emd, int nb, uint16_t addr)
 {
-	int len = 1;
-	uint16_t *vop, *varg;
-	struct emdas_op *op;
+	int len = 0;
+	struct emdas_op *op = NULL;
+	uint16_t *vop = NULL;
+	uint16_t *varg = NULL;
 
 	emdas_buf_reset(emd->dbuf);
 
@@ -213,50 +236,41 @@ int emdas_dasm(struct emdas *emd, int nb, uint16_t addr)
 	if (emd->features & EMD_FEAT_LABELS) {
 	}
 
-	// 3. print opcode
+	// get instruction opcode
 	vop = emd->memget(nb, addr);
+	len++;
 	if (vop) {
 		op = emd->ops + *vop;
-		int len = emdas_buf_ts(emd->dbuf, emd->tabs.mnemo, "%s", emdas_iset_mnemo[op->id]);
-		if (emd->features & EMD_FEAT_LMNEMO) {
-			emdas_buf_tolower(emd->dbuf, len);
-		}
-	} else {
-		// cannot read memory
-		emdas_buf_ts(emd->dbuf, emd->tabs.mnemo, "%s", "???");
-		goto fin;
 	}
 
-	// 4. print arg(s)
-	if (op->id == EMD_OP_NONE) {
-		// .word "arg"
-		emdas_buf_ti(emd->dbuf, emd->tabs.addr, "0x%04x", *vop);
-	} else {
-		// real instruction argument
-		if (!(op->flags & EMD_FL_ARG_NONE)) {
-			emdas_buf_tab(emd->dbuf, emd->tabs.arg);
-			if (op->flags & EMD_FL_2WORD) {
-				// get long arg
-				varg = emd->memget(nb, addr+1);
-				len++;
-			}
-			emdas_print_arg(emd->dbuf, *vop, op, varg);
-		}
-	}
+	// 3. print mnemonic
+	emdas_buf_tab(emd->dbuf, emd->tabs.mnemo);
+	emdas_print_op(emd, op);
 
-	// 5. print comment
-	if (emd->features & EMD_FEAT_ALTS) {
-		emdas_buf_ti(emd->dbuf, emd->tabs.alt, "; .word 0x%04x", *vop);
+	if (op) {
+		// get 2nd arg if necessary
 		if (op->flags & EMD_FL_2WORD) {
-			if (varg) {
-				emdas_buf_i(emd->dbuf, ", 0x%04x", *varg);
-			} else {
-				emdas_buf_s(emd->dbuf, ", %s", "???");
+			varg = emd->memget(nb, addr+1);
+			len++;
+		}
+
+		// 4. print arg(s)
+		emdas_buf_tab(emd->dbuf, emd->tabs.arg);
+		emdas_print_arg(emd, op, varg);
+
+		// 5. print comment
+		if (emd->features & EMD_FEAT_ALTS) {
+			emdas_buf_ti(emd->dbuf, emd->tabs.alt, "; .word 0x%04x", *vop);
+			if (op->flags & EMD_FL_2WORD) {
+				if (varg) {
+					emdas_buf_i(emd->dbuf, ", 0x%04x", *varg);
+				} else {
+					emdas_buf_s(emd->dbuf, ", %s", "???");
+				}
 			}
 		}
 	}
 
-fin:
 	emdas_buf_nl(emd->dbuf);
 	return len;
 }
