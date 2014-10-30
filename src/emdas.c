@@ -19,31 +19,36 @@
 #include <stdio.h>
 #include <getopt.h>
 #include <string.h>
+#include <arpa/inet.h>
 #include <emelf.h>
 
 #include "emdas.h"
 
-int isize;
-
 char *input_file;
 char *output_file;
 
-int skip_labels, skip_addresses, skip_values, skip_analysis;
+int iset = EMD_ISET_MERA400;
+int features = EMD_FEAT_ALL & ~EMD_FEAT_LMNEMO;
 int base_addr;
+
+uint16_t *mem;
+int bin_size;
 
 // -----------------------------------------------------------------------
 void usage()
 {
-	printf("Usage: emdas [options] input\n");
-	printf("Where options are one or more of:\n");
-	printf("   -o <output> : specify output file (stdout otherwise)\n");
-	printf("   -na         : do not include adresses in asm output\n");
-	printf("   -nv         : do not include values in asm output\n");
-	printf("   -nl         : do not assign labels\n");
-	printf("   -nr         : skip argument analysis (implies -nl)\n");
-	printf("   -a <addr>   : set base address\n");
-	printf("   -v          : print version and exit\n");
-	printf("   -h          : print help and exit\n");
+	printf("Usage: emdas [options] input\n"
+		"Where options are one or more of:\n"
+		"   -x          : use extended MX-16 instruction set\n"
+		"   -l          : use lowercase mnemonics\n"
+		"   -o <output> : specify output file (stdout otherwise)\n"
+		"   -na         : do not include adresses in asm output\n"
+		"   -nc         : do not include comments with alternatives in asm output\n"
+		"   -nl         : do not assign labels\n"
+		"   -a <addr>   : set base address\n"
+		"   -v          : print version and exit\n"
+		"   -h          : print help and exit\n"
+	);
 }
 
 // -----------------------------------------------------------------------
@@ -52,16 +57,21 @@ int parse_args(int argc, char **argv)
 	char *oa;
 	int option;
 
-	while ((option = getopt(argc, argv,"o:n:a:vh")) != -1) {
+	while ((option = getopt(argc, argv,"xlo:n:a:vh")) != -1) {
 		switch (option) {
+			case 'x':
+				iset = EMD_ISET_MX16;
+				break;
+			case 'l':
+				features |= EMD_FEAT_LMNEMO;
+				break;
 			case 'n':
 				oa = optarg;
 				while (oa && *oa){
 					switch (*oa) {
-						case 'a': skip_addresses = 1; break;
-						case 'v': skip_values = 1; break;
-						case 'l': skip_labels = 1; break;
-						case 'r': skip_analysis = 1; break;
+						case 'a': features &= ~EMD_FEAT_ADDR; break;
+						case 'c': features &= ~EMD_FEAT_ALTS; break;
+						case 'l': features &= ~EMD_FEAT_LABELS; break;
 						default: 
 							fprintf(stderr, "Unknown parameter for -n: '%c'\n", *oa);
 							return -1;
@@ -99,57 +109,15 @@ int parse_args(int argc, char **argv)
 }
 
 // -----------------------------------------------------------------------
-int write_asm(FILE *f, struct emdas *emd, uint16_t base_addr, uint16_t size)
+uint16_t * memget(int nb, uint16_t addr)
 {
-	int res;
-	int bytes = 0;
-	struct emdas_cell *cell;
-	const int bsize = 1024;
-	char buf[bsize];
-	int pos = 0;
-
-	for (int addr=base_addr ; addr<base_addr+size ; addr++, pos=0) {
-		cell = emdas_get_cell(emd, addr);
-
-		//__emdas_dump_cell(stdout, cell);
-
-		// skip args
-		if (cell->type == CELL_ARG) continue;
-
-		// instruction
-		pos += snprintf(buf+pos, bsize-pos, "%-50s", cell->text);
-
-		// comment
-		if ((!skip_values) && ((cell->type != CELL_DATA) || (cell->arg_name))) {
-			if ((cell->flags & FL_2WORD)) {
-				struct emdas_cell *arg = emdas_get_rel(cell->args, ARG_2ARG);
-				if (arg) {
-					pos += snprintf(buf+pos, bsize-pos, " ; .word 0x%04x, 0x%04x", cell->v, arg->v);
-				} else {
-					pos += snprintf(buf+pos, bsize-pos, " ; .word 0x%04x, ??? (missing arg ref, this is weird)", cell->v);
-				}
-			} else {
-				pos += snprintf(buf+pos, bsize-pos, " ; .word 0x%04x", cell->v);
-			}
-		}
-
-		// newline
-		pos += snprintf(buf+pos, bsize-pos, "\n");
-
-		res = fwrite(buf, 1, pos, f);
-		if (res < 0) {
-			return res;
-		}
-		bytes += res;
-	}
-
-	return bytes;
+	return mem + addr;
 }
 
 // -----------------------------------------------------------------------
 int main(int argc, char **argv)
 {
-	FILE *f;
+	FILE *fi, *fo;
 	int res;
 	int ret = -1;
 	struct emdas *emd = NULL;
@@ -162,21 +130,16 @@ int main(int argc, char **argv)
 		goto cleanup;
 	}
 
-	f = fopen(input_file, "r");
-	if (!f) {
+	fi = fopen(input_file, "r");
+	if (!fi) {
 		printf("Cannot open input file '%s'.\n", input_file);
 		goto cleanup;
 	}
 
-	emd = emdas_init();
+	emd = emdas_create(iset, EMD_PRINTER_DEFAULT, memget);
 	if (!emd) {
 		printf("Cannot setup disassembler.\n");
 		goto cleanup;
-	}
-
-	int features = FEAT_ALL & ~FEAT_UCASE;
-	if (skip_analysis) {
-		features &= ~FEAT_ANALYZE;
 	}
 
 	res = emdas_set_features(emd, features);
@@ -185,50 +148,60 @@ int main(int argc, char **argv)
 		goto cleanup;
 	}
 
-	// try as emelf
-	e = emelf_load(f);
+	// try as emelf first
+	e = emelf_load(fi);
 
 	if (e) {
-		isize = emdas_import_tab(emd, base_addr, e->image_size, e->image);
-		emelf_destroy(e);
+		bin_size = e->image_size;
+		mem = e->image;
 	} else {
-		rewind(f);
-		isize = emdas_import_stream(emd, base_addr, 65536-base_addr, f);
+		mem = calloc(0x10000, sizeof(uint16_t));
+		if (!mem) {
+			fclose(fi);
+			printf("Memory allocation error\n");
+			goto cleanup;
+		}
+		rewind(fi);
+		bin_size = fread(mem+base_addr, sizeof(uint16_t), 0x10000-base_addr, fi);
+		for (int i=base_addr ; i<base_addr+bin_size ; i++) {
+			mem[i] = ntohs(mem[i]);
+		}
 	}
 
-	if (isize < 0) {
+	if (bin_size < 0) {
 		printf("Cannot read input file '%s'.\n", input_file);
-		fclose(f);
+		fclose(fi);
 		goto cleanup;
 	}
-	fclose(f);
+	fclose(fi);
 
 	if (output_file) {
-		f = fopen(output_file, "w");
+		fo = fopen(output_file, "w");
 	} else {
-		f = stdout;
+		fo = stdout;
 	}
 
-	if (!f) {
+	if (!fo) {
 		printf("Cannot open output file '%s' for writing.\n", output_file);
 		goto cleanup;
 	}
 
-	res = write_asm(f, emd, base_addr, isize);
-	if (res < 0) {
-		printf("Cannot write disassembled source: '%s'.\n", output_file);
-		if (output_file) {
-			fclose(f);
-		}
-		goto cleanup;
+	// disassemble and write output
+	int ic = base_addr;
+	while (ic < base_addr+bin_size) {
+		ic += emdas_dasm(emd, 0, ic);
+		fprintf(fo, "%s", emdas_get_buf(emd));
 	}
+
 	if (output_file) {
-		fclose(f);
+		fclose(fo);
 	}
 	ret = 0;
 
 cleanup:
-	emdas_shutdown(emd);
+	if (e) emelf_destroy(e);
+	else free(mem);
+	emdas_destroy(emd);
 	free(output_file);
 	return ret;
 }

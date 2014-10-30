@@ -1,4 +1,4 @@
-//  Copyright (c) 2012-2014 Jakub Filipowicz <jakubf@gmail.com>
+//  Copyright (c) 2014 Jakub Filipowicz <jakubf@gmail.com>
 //
 //  This program is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -16,507 +16,262 @@
 //  51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 #include <stdlib.h>
+#include <inttypes.h>
 
-#include "emdas.h"
-#include "iset.h"
+#include "emdas/iset.h"
+#include "opfields.h"
 
-static const struct opdef * get_extop_37(uint16_t opcode);
-static const struct opdef * get_extop_70(uint16_t opcode);
-static const struct opdef * get_extop_71(uint16_t opcode);
-static const struct opdef * get_extop_72(uint16_t opcode);
-static const struct opdef * get_extop_73(uint16_t opcode);
-static const struct opdef * get_extop_74(uint16_t opcode);
-static const struct opdef * get_extop_75(uint16_t opcode);
-static const struct opdef * get_extop_76(uint16_t opcode);
-static const struct opdef * get_extop_77(uint16_t opcode);
-
-static const struct opdef iset[] = {
-	{ 000, OP_NONE, NULL, FL_NONE },
-	{ 001, OP_NONE, NULL, FL_NONE },
-	{ 002, OP_NONE, NULL, FL_NONE },
-	{ 003, OP_NONE, NULL, FL_NONE },
-	{ 004, OP_NONE, NULL, FL_NONE },
-	{ 005, OP_NONE, NULL, FL_NONE },
-	{ 006, OP_NONE, NULL, FL_NONE },
-	{ 007, OP_NONE, NULL, FL_NONE },
-	{ 010, OP_NONE, NULL, FL_NONE },
-	{ 011, OP_NONE, NULL, FL_NONE },
-	{ 012, OP_NONE, NULL, FL_NONE },
-	{ 013, OP_NONE, NULL, FL_NONE },
-	{ 014, OP_NONE, NULL, FL_NONE },
-	{ 015, OP_NONE, NULL, FL_NONE },
-	{ 016, OP_NONE, NULL, FL_NONE },
-	{ 017, OP_NONE, NULL, FL_NONE },
-	
-	{ 020, OP_LW, NULL, FL_ARG_REG | FL_ARG_NORM },
-	{ 021, OP_TW, NULL, FL_ARG_REG | FL_ARG_NORM | FL_ADDR_WORD },
-	{ 022, OP_LS, NULL, FL_ARG_REG | FL_ARG_NORM },
-	{ 023, OP_RI, NULL, FL_ARG_REG | FL_ARG_NORM | FL_ARG_REGIND },
-	{ 024, OP_RW, NULL, FL_ARG_REG | FL_ARG_NORM | FL_ADDR_WORD },
-	{ 025, OP_PW, NULL, FL_ARG_REG | FL_ARG_NORM | FL_ADDR_WORD },
-	{ 026, OP_RJ, NULL, FL_ARG_REG | FL_ARG_NORM | FL_ADDR_JUMP },
-	{ 027, OP_IS, NULL, FL_ARG_REG | FL_ARG_NORM | FL_ADDR_JUMP },
-	{ 030, OP_BB, NULL, FL_ARG_REG | FL_ARG_NORM },
-	{ 031, OP_BM, NULL, FL_ARG_REG | FL_ARG_NORM | FL_ADDR_JUMP },
-	{ 032, OP_BS, NULL, FL_ARG_REG | FL_ARG_NORM },
-	{ 033, OP_BC, NULL, FL_ARG_REG | FL_ARG_NORM },
-	{ 034, OP_BN, NULL, FL_ARG_REG | FL_ARG_NORM },
-	{ 035, OP_OU, NULL, FL_ARG_REG | FL_ARG_NORM | FL_INS_OS | FL_INS_IO },
-	{ 036, OP_IN, NULL, FL_ARG_REG | FL_ARG_NORM | FL_INS_OS | FL_INS_IO },
-
-	{ 037, OP_NONE, get_extop_37, FL_NONE },
-
-	{ 040, OP_AW, NULL, FL_ARG_REG | FL_ARG_NORM },
-	{ 041, OP_AC, NULL, FL_ARG_REG | FL_ARG_NORM },
-	{ 042, OP_SW, NULL, FL_ARG_REG | FL_ARG_NORM },
-	{ 043, OP_CW, NULL, FL_ARG_REG | FL_ARG_NORM },
-	{ 044, OP_OR, NULL, FL_ARG_REG | FL_ARG_NORM },
-	{ 045, OP_OM, NULL, FL_ARG_REG | FL_ARG_NORM | FL_ADDR_WORD },
-	{ 046, OP_NR, NULL, FL_ARG_REG | FL_ARG_NORM },
-	{ 047, OP_NM, NULL, FL_ARG_REG | FL_ARG_NORM | FL_ADDR_WORD },
-	{ 050, OP_ER, NULL, FL_ARG_REG | FL_ARG_NORM },
-	{ 051, OP_EM, NULL, FL_ARG_REG | FL_ARG_NORM | FL_ADDR_WORD },
-	{ 052, OP_XR, NULL, FL_ARG_REG | FL_ARG_NORM },
-	{ 053, OP_XM, NULL, FL_ARG_REG | FL_ARG_NORM | FL_ADDR_WORD },
-	{ 054, OP_CL, NULL, FL_ARG_REG | FL_ARG_NORM },
-	{ 055, OP_LB, NULL, FL_ARG_REG | FL_ARG_NORM | FL_ADDR_BYTE },
-	{ 056, OP_RB, NULL, FL_ARG_REG | FL_ARG_NORM | FL_ADDR_BYTE },
-	{ 057, OP_CB, NULL, FL_ARG_REG | FL_ARG_NORM | FL_ADDR_BYTE },
-
-	{ 060, OP_AWT, NULL, FL_ARG_REG | FL_ARG_SHORT7 },
-	{ 061, OP_TRB, NULL, FL_ARG_REG | FL_ARG_SHORT7 },
-	{ 062, OP_IRB, NULL, FL_ARG_REG | FL_ARG_SHORT7 | FL_ARG_RELATIVE | FL_ADDR_JUMP },
-	{ 063, OP_DRB, NULL, FL_ARG_REG | FL_ARG_SHORT7 | FL_ARG_RELATIVE | FL_ADDR_JUMP },
-	{ 064, OP_CWT, NULL, FL_ARG_REG | FL_ARG_SHORT7 },
-	{ 065, OP_LWT, NULL, FL_ARG_REG | FL_ARG_SHORT7 },
-	{ 066, OP_LWS, NULL, FL_ARG_REG | FL_ARG_SHORT7 | FL_ARG_RELATIVE | FL_ADDR_WORD },
-	{ 067, OP_RWS, NULL, FL_ARG_REG | FL_ARG_SHORT7 | FL_ARG_RELATIVE | FL_ADDR_WORD },
-
-	{ 070, OP_NONE, get_extop_70, FL_NONE },
-	{ 071, OP_NONE, get_extop_71, FL_NONE },
-	{ 072, OP_NONE, get_extop_72, FL_NONE },
-	{ 073, OP_NONE, get_extop_73, FL_NONE },
-	{ 074, OP_NONE, get_extop_74, FL_NONE },
-	{ 075, OP_NONE, get_extop_75, FL_NONE },
-	{ 076, OP_NONE, get_extop_76, FL_NONE },
-	{ 077, OP_NONE, get_extop_77, FL_NONE }
+// varmasks tell which bits contain variable instruction elements
+enum emdas_iset_var_masks {
+	VARMASK_ALL		= 0b1111111111111111,
+	VARMASK_DABC	= 0b0000001111111111,
+	VARMASK_DAC		= 0b0000001111000111,
+	VARMASK_DBC		= 0b0000001000111111,
+	VARMASK_DB1C	= 0b0000001000111100,
+	VARMASK_B23C	= 0b0000000000111100,
+	VARMASK_DB		= 0b0000001000111000,
+	VARMASK_BYTE	= 0b0000000011111111,
+	VARMASK_BC		= 0b0000000000111111,
+	VARMASK_A		= 0b0000000111000000,
+	VARMASK_B		= 0b0000000000111000,
 };
 
-static const struct opdef iset_37[] = {
-	{ 0, OP_AD, NULL, FL_ARG_NORM | FL_ADDR_DWORD },
-	{ 1, OP_SD, NULL, FL_ARG_NORM | FL_ADDR_DWORD },
-	{ 2, OP_MW, NULL, FL_ARG_NORM | FL_ADDR_WORD },
-	{ 3, OP_DW, NULL, FL_ARG_NORM | FL_ADDR_WORD },
-	{ 4, OP_AF, NULL, FL_ARG_NORM | FL_ADDR_FLOAT },
-	{ 5, OP_SF, NULL, FL_ARG_NORM | FL_ADDR_FLOAT },
-	{ 6, OP_MF, NULL, FL_ARG_NORM | FL_ADDR_FLOAT },
-	{ 7, OP_DF, NULL, FL_ARG_NORM | FL_ADDR_FLOAT }
+#define O(x) ((x) << 10)
+
+struct emdas_instr {
+	uint16_t opcode;	// instruction opcode (and extended opcode)
+	uint16_t var_mask;	// variable bits mask
+	struct emdas_op op;	// opcode definition
 };
 
-static const struct opdef iset_70[] = {
-	{ 0, OP_UJS, NULL, FL_ARG_SHORT7 | FL_ARG_RELATIVE | FL_ADDR_JUMP },
-	{ 1, OP_JLS, NULL, FL_ARG_SHORT7 | FL_ARG_RELATIVE | FL_ADDR_JUMP },
-	{ 2, OP_JES, NULL, FL_ARG_SHORT7 | FL_ARG_RELATIVE | FL_ADDR_JUMP },
-	{ 3, OP_JGS, NULL, FL_ARG_SHORT7 | FL_ARG_RELATIVE | FL_ADDR_JUMP },
-	{ 4, OP_JVS, NULL, FL_ARG_SHORT7 | FL_ARG_RELATIVE | FL_ADDR_JUMP },
-	{ 5, OP_JXS, NULL, FL_ARG_SHORT7 | FL_ARG_RELATIVE | FL_ADDR_JUMP },
-	{ 6, OP_JYS, NULL, FL_ARG_SHORT7 | FL_ARG_RELATIVE | FL_ADDR_JUMP },
-	{ 7, OP_JCS, NULL, FL_ARG_SHORT7 | FL_ARG_RELATIVE | FL_ADDR_JUMP }
-};
+static struct emdas_instr emdas_ilist[] = {
+	{ 0, VARMASK_ALL, { EMD_OP_NONE, EMD_FL_NONE } }, // ilegal instructions
 
-static const struct opdef iset_71[] = {
-	{ 0, OP_BLC, NULL, FL_ARG_SHORT8 },
-	{ 1, OP_EXL, NULL, FL_ARG_SHORT8 },
-	{ 2, OP_BRC, NULL, FL_ARG_SHORT8 },
-	{ 3, OP_NRF, NULL, FL_ARG_SHORT8 }
-};
+	{ O(020), VARMASK_DABC, { EMD_OP_LW, EMD_FL_ARG_REG | EMD_FL_ARG_NORM } },
+	{ O(021), VARMASK_DABC, { EMD_OP_TW, EMD_FL_ARG_REG | EMD_FL_ARG_NORM | EMD_FL_ADDR_WORD } },
+	{ O(022), VARMASK_DABC, { EMD_OP_LS, EMD_FL_ARG_REG | EMD_FL_ARG_NORM } },
+	{ O(023), VARMASK_DABC, { EMD_OP_RI, EMD_FL_ARG_REG | EMD_FL_ARG_NORM | EMD_FL_ARG_REGIND } },
+	{ O(024), VARMASK_DABC, { EMD_OP_RW, EMD_FL_ARG_REG | EMD_FL_ARG_NORM | EMD_FL_ADDR_WORD } },
+	{ O(025), VARMASK_DABC, { EMD_OP_PW, EMD_FL_ARG_REG | EMD_FL_ARG_NORM | EMD_FL_ADDR_WORD } },
+	{ O(026), VARMASK_DABC, { EMD_OP_RJ, EMD_FL_ARG_REG | EMD_FL_ARG_NORM | EMD_FL_ADDR_JUMP } },
+	{ O(027), VARMASK_DABC, { EMD_OP_IS, EMD_FL_ARG_REG | EMD_FL_ARG_NORM | EMD_FL_ADDR_JUMP } },
+	{ O(030), VARMASK_DABC, { EMD_OP_BB, EMD_FL_ARG_REG | EMD_FL_ARG_NORM } },
+	{ O(031), VARMASK_DABC, { EMD_OP_BM, EMD_FL_ARG_REG | EMD_FL_ARG_NORM | EMD_FL_ADDR_JUMP } },
+	{ O(032), VARMASK_DABC, { EMD_OP_BS, EMD_FL_ARG_REG | EMD_FL_ARG_NORM } },
+	{ O(033), VARMASK_DABC, { EMD_OP_BC, EMD_FL_ARG_REG | EMD_FL_ARG_NORM } },
+	{ O(034), VARMASK_DABC, { EMD_OP_BN, EMD_FL_ARG_REG | EMD_FL_ARG_NORM } },
+	{ O(035), VARMASK_DABC, { EMD_OP_OU, EMD_FL_ARG_REG | EMD_FL_ARG_NORM | EMD_FL_INS_OS | EMD_FL_INS_IO } },
+	{ O(036), VARMASK_DABC, { EMD_OP_IN, EMD_FL_ARG_REG | EMD_FL_ARG_NORM | EMD_FL_INS_OS | EMD_FL_INS_IO } },
 
-static const struct opdef iset_72[] = {
-	{ 0000, OP_RIC, NULL, FL_ARG_REG },
-	{ 0001, OP_ZLB, NULL, FL_ARG_REG },
-	{ 0002, OP_SXU, NULL, FL_ARG_REG },
-	{ 0003, OP_NGA, NULL, FL_ARG_REG },
-	{ 0004, OP_SLZ, NULL, FL_ARG_REG },
-	{ 0005, OP_SLY, NULL, FL_ARG_REG },
-	{ 0006, OP_SLX, NULL, FL_ARG_REG },
-	{ 0007, OP_SRY, NULL, FL_ARG_REG },
-	{ 0010, OP_NGL, NULL, FL_ARG_REG },
-	{ 0011, OP_RPC, NULL, FL_ARG_REG },
-	{ 0012, OP_NONE, NULL, FL_NONE },
-	{ 0013, OP_NONE, NULL, FL_NONE },
-	{ 0014, OP_NONE, NULL, FL_NONE },
-	{ 0015, OP_NONE, NULL, FL_NONE },
-	{ 0016, OP_NONE, NULL, FL_NONE },
-	{ 0017, OP_NONE, NULL, FL_NONE },
-	{ 0020, OP_SHC,  NULL, FL_ARG_REG | FL_ARG_SHORT4 },
-	{ 0021, OP_SHC,  NULL, FL_ARG_REG | FL_ARG_SHORT4 },
-	{ 0022, OP_SHC,  NULL, FL_ARG_REG | FL_ARG_SHORT4 },
-	{ 0023, OP_SHC,  NULL, FL_ARG_REG | FL_ARG_SHORT4 },
-	{ 0024, OP_SHC,  NULL, FL_ARG_REG | FL_ARG_SHORT4 },
-	{ 0025, OP_SHC,  NULL, FL_ARG_REG | FL_ARG_SHORT4 },
-	{ 0026, OP_SHC,  NULL, FL_ARG_REG | FL_ARG_SHORT4 },
-	{ 0027, OP_SHC,  NULL, FL_ARG_REG | FL_ARG_SHORT4 },
-	{ 0030, OP_NONE, NULL, FL_NONE },
-	{ 0031, OP_NONE, NULL, FL_NONE },
-	{ 0032, OP_NONE, NULL, FL_NONE },
-	{ 0033, OP_NONE, NULL, FL_NONE },
-	{ 0034, OP_NONE, NULL, FL_NONE },
-	{ 0035, OP_NONE, NULL, FL_NONE },
-	{ 0036, OP_NONE, NULL, FL_NONE },
-	{ 0037, OP_NONE, NULL, FL_NONE },
-	{ 0040, OP_NONE, NULL, FL_NONE },
-	{ 0041, OP_NONE, NULL, FL_NONE },
-	{ 0042, OP_NONE, NULL, FL_NONE },
-	{ 0043, OP_NONE, NULL, FL_NONE },
-	{ 0044, OP_NONE, NULL, FL_NONE },
-	{ 0045, OP_NONE, NULL, FL_NONE },
-	{ 0046, OP_NONE, NULL, FL_NONE },
-	{ 0047, OP_NONE, NULL, FL_NONE },
-	{ 0050, OP_NONE, NULL, FL_NONE },
-	{ 0051, OP_NONE, NULL, FL_NONE },
-	{ 0052, OP_NONE, NULL, FL_NONE },
-	{ 0053, OP_NONE, NULL, FL_NONE },
-	{ 0054, OP_NONE, NULL, FL_NONE },
-	{ 0055, OP_NONE, NULL, FL_NONE },
-	{ 0056, OP_NONE, NULL, FL_NONE },
-	{ 0057, OP_NONE, NULL, FL_NONE },
-	{ 0060, OP_NONE, NULL, FL_NONE },
-	{ 0061, OP_NONE, NULL, FL_NONE },
-	{ 0062, OP_NONE, NULL, FL_NONE },
-	{ 0063, OP_NONE, NULL, FL_NONE },
-	{ 0064, OP_NONE, NULL, FL_NONE },
-	{ 0065, OP_NONE, NULL, FL_NONE },
-	{ 0066, OP_NONE, NULL, FL_NONE },
-	{ 0067, OP_NONE, NULL, FL_NONE },
-	{ 0070, OP_NONE, NULL, FL_NONE },
-	{ 0071, OP_NONE, NULL, FL_NONE },
-	{ 0072, OP_NONE, NULL, FL_NONE },
-	{ 0073, OP_NONE, NULL, FL_NONE },
-	{ 0074, OP_NONE, NULL, FL_NONE },
-	{ 0075, OP_NONE, NULL, FL_NONE },
-	{ 0076, OP_NONE, NULL, FL_NONE },
-	{ 0077, OP_NONE, NULL, FL_NONE },
-	{ 0100, OP_RKY, NULL, FL_ARG_REG },
-	{ 0101, OP_ZRB, NULL, FL_ARG_REG },
-	{ 0102, OP_SXL, NULL, FL_ARG_REG },
-	{ 0103, OP_NGC, NULL, FL_ARG_REG },
-	{ 0104, OP_SVZ, NULL, FL_ARG_REG },
-	{ 0105, OP_SVY, NULL, FL_ARG_REG },
-	{ 0106, OP_SVX, NULL, FL_ARG_REG },
-	{ 0107, OP_SRX, NULL, FL_ARG_REG },
-	{ 0110, OP_SRZ, NULL, FL_ARG_REG },
-	{ 0111, OP_LPC, NULL, FL_ARG_REG },
-	{ 0112, OP_NONE, NULL, FL_NONE },
-	{ 0113, OP_NONE, NULL, FL_NONE },
-	{ 0114, OP_NONE, NULL, FL_NONE },
-	{ 0115, OP_NONE, NULL, FL_NONE },
-	{ 0116, OP_NONE, NULL, FL_NONE },
-	{ 0117, OP_NONE, NULL, FL_NONE },
-	{ 0121, OP_SHC, NULL, FL_ARG_REG | FL_ARG_SHORT4 },
-	{ 0120, OP_SHC, NULL, FL_ARG_REG | FL_ARG_SHORT4 },
-	{ 0122, OP_SHC, NULL, FL_ARG_REG | FL_ARG_SHORT4 },
-	{ 0123, OP_SHC, NULL, FL_ARG_REG | FL_ARG_SHORT4 },
-	{ 0124, OP_SHC, NULL, FL_ARG_REG | FL_ARG_SHORT4 },
-	{ 0125, OP_SHC, NULL, FL_ARG_REG | FL_ARG_SHORT4 },
-	{ 0126, OP_SHC, NULL, FL_ARG_REG | FL_ARG_SHORT4 },
-	{ 0127, OP_SHC, NULL, FL_ARG_REG | FL_ARG_SHORT4 },
-	{ 0130, OP_NONE, NULL, FL_NONE },
-	{ 0131, OP_NONE, NULL, FL_NONE },
-	{ 0132, OP_NONE, NULL, FL_NONE },
-	{ 0133, OP_NONE, NULL, FL_NONE },
-	{ 0134, OP_NONE, NULL, FL_NONE },
-	{ 0135, OP_NONE, NULL, FL_NONE },
-	{ 0136, OP_NONE, NULL, FL_NONE },
-	{ 0137, OP_NONE, NULL, FL_NONE },
-	{ 0140, OP_NONE, NULL, FL_NONE },
-	{ 0141, OP_NONE, NULL, FL_NONE },
-	{ 0142, OP_NONE, NULL, FL_NONE },
-	{ 0143, OP_NONE, NULL, FL_NONE },
-	{ 0144, OP_NONE, NULL, FL_NONE },
-	{ 0145, OP_NONE, NULL, FL_NONE },
-	{ 0146, OP_NONE, NULL, FL_NONE },
-	{ 0147, OP_NONE, NULL, FL_NONE },
-	{ 0150, OP_NONE, NULL, FL_NONE },
-	{ 0151, OP_NONE, NULL, FL_NONE },
-	{ 0152, OP_NONE, NULL, FL_NONE },
-	{ 0153, OP_NONE, NULL, FL_NONE },
-	{ 0154, OP_NONE, NULL, FL_NONE },
-	{ 0155, OP_NONE, NULL, FL_NONE },
-	{ 0156, OP_NONE, NULL, FL_NONE },
-	{ 0157, OP_NONE, NULL, FL_NONE },
-	{ 0161, OP_NONE, NULL, FL_NONE },
-	{ 0160, OP_NONE, NULL, FL_NONE },
-	{ 0162, OP_NONE, NULL, FL_NONE },
-	{ 0163, OP_NONE, NULL, FL_NONE },
-	{ 0164, OP_NONE, NULL, FL_NONE },
-	{ 0165, OP_NONE, NULL, FL_NONE },
-	{ 0166, OP_NONE, NULL, FL_NONE },
-	{ 0167, OP_NONE, NULL, FL_NONE },
-	{ 0170, OP_NONE, NULL, FL_NONE },
-	{ 0171, OP_NONE, NULL, FL_NONE },
-	{ 0172, OP_NONE, NULL, FL_NONE },
-	{ 0173, OP_NONE, NULL, FL_NONE },
-	{ 0174, OP_NONE, NULL, FL_NONE },
-	{ 0175, OP_NONE, NULL, FL_NONE },
-	{ 0176, OP_NONE, NULL, FL_NONE },
-	{ 0177, OP_NONE, NULL, FL_NONE }
-};
+	{ O(037)+0000, VARMASK_DBC, { EMD_OP_AD, EMD_FL_ARG_NORM | EMD_FL_ADDR_DWORD } },
+	{ O(037)+0100, VARMASK_DBC, { EMD_OP_SD, EMD_FL_ARG_NORM | EMD_FL_ADDR_DWORD } },
+	{ O(037)+0200, VARMASK_DBC, { EMD_OP_MW, EMD_FL_ARG_NORM | EMD_FL_ADDR_WORD } },
+	{ O(037)+0300, VARMASK_DBC, { EMD_OP_DW, EMD_FL_ARG_NORM | EMD_FL_ADDR_WORD } },
+	{ O(037)+0400, VARMASK_DBC, { EMD_OP_AF, EMD_FL_ARG_NORM | EMD_FL_ADDR_FLOAT } },
+	{ O(037)+0500, VARMASK_DBC, { EMD_OP_SF, EMD_FL_ARG_NORM | EMD_FL_ADDR_FLOAT } },
+	{ O(037)+0600, VARMASK_DBC, { EMD_OP_MF, EMD_FL_ARG_NORM | EMD_FL_ADDR_FLOAT } },
+	{ O(037)+0700, VARMASK_DBC, { EMD_OP_DF, EMD_FL_ARG_NORM | EMD_FL_ADDR_FLOAT } },
 
-static const struct opdef iset_73[] = {
-	{ 0000, OP_HLT, NULL, FL_ARG_SHORT7 | FL_INS_OS },
-	{ 0001, OP_HLT, NULL, FL_ARG_SHORT7 | FL_INS_OS },
-	{ 0002, OP_HLT, NULL, FL_ARG_SHORT7 | FL_INS_OS },
-	{ 0003, OP_HLT, NULL, FL_ARG_SHORT7 | FL_INS_OS },
-	{ 0004, OP_HLT, NULL, FL_ARG_SHORT7 | FL_INS_OS },
-	{ 0005, OP_HLT, NULL, FL_ARG_SHORT7 | FL_INS_OS },
-	{ 0006, OP_HLT, NULL, FL_ARG_SHORT7 | FL_INS_OS },
-	{ 0007, OP_HLT, NULL, FL_ARG_SHORT7 | FL_INS_OS },
+	{ O(040), VARMASK_DABC, { EMD_OP_AW, EMD_FL_ARG_REG | EMD_FL_ARG_NORM } },
+	{ O(041), VARMASK_DABC, { EMD_OP_AC, EMD_FL_ARG_REG | EMD_FL_ARG_NORM } },
+	{ O(042), VARMASK_DABC, { EMD_OP_SW, EMD_FL_ARG_REG | EMD_FL_ARG_NORM } },
+	{ O(043), VARMASK_DABC, { EMD_OP_CW, EMD_FL_ARG_REG | EMD_FL_ARG_NORM } },
+	{ O(044), VARMASK_DABC, { EMD_OP_OR, EMD_FL_ARG_REG | EMD_FL_ARG_NORM } },
+	{ O(045), VARMASK_DABC, { EMD_OP_OM, EMD_FL_ARG_REG | EMD_FL_ARG_NORM | EMD_FL_ADDR_WORD } },
+	{ O(046), VARMASK_DABC, { EMD_OP_NR, EMD_FL_ARG_REG | EMD_FL_ARG_NORM } },
+	{ O(047), VARMASK_DABC, { EMD_OP_NM, EMD_FL_ARG_REG | EMD_FL_ARG_NORM | EMD_FL_ADDR_WORD } },
+	{ O(050), VARMASK_DABC, { EMD_OP_ER, EMD_FL_ARG_REG | EMD_FL_ARG_NORM } },
+	{ O(051), VARMASK_DABC, { EMD_OP_EM, EMD_FL_ARG_REG | EMD_FL_ARG_NORM | EMD_FL_ADDR_WORD } },
+	{ O(052), VARMASK_DABC, { EMD_OP_XR, EMD_FL_ARG_REG | EMD_FL_ARG_NORM } },
+	{ O(053), VARMASK_DABC, { EMD_OP_XM, EMD_FL_ARG_REG | EMD_FL_ARG_NORM | EMD_FL_ADDR_WORD } },
+	{ O(054), VARMASK_DABC, { EMD_OP_CL, EMD_FL_ARG_REG | EMD_FL_ARG_NORM } },
+	{ O(055), VARMASK_DABC, { EMD_OP_LB, EMD_FL_ARG_REG | EMD_FL_ARG_NORM | EMD_FL_ADDR_BYTE } },
+	{ O(056), VARMASK_DABC, { EMD_OP_RB, EMD_FL_ARG_REG | EMD_FL_ARG_NORM | EMD_FL_ADDR_BYTE } },
+	{ O(057), VARMASK_DABC, { EMD_OP_CB, EMD_FL_ARG_REG | EMD_FL_ARG_NORM | EMD_FL_ADDR_BYTE } },
 
-	{ 0010, OP_MCL, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0011, OP_MCL, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0012, OP_MCL, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0013, OP_MCL, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0014, OP_MCL, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0015, OP_MCL, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0016, OP_MCL, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0017, OP_MCL, NULL, FL_ARG_NONE | FL_INS_OS },
+	{ O(060), VARMASK_DABC, { EMD_OP_AWT, EMD_FL_ARG_REG | EMD_FL_ARG_SHORT7 } },
+	{ O(061), VARMASK_DABC, { EMD_OP_TRB, EMD_FL_ARG_REG | EMD_FL_ARG_SHORT7 } },
+	{ O(062), VARMASK_DABC, { EMD_OP_IRB, EMD_FL_ARG_REG | EMD_FL_ARG_SHORT7 | EMD_FL_ARG_RELATIVE | EMD_FL_ADDR_JUMP } },
+	{ O(063), VARMASK_DABC, { EMD_OP_DRB, EMD_FL_ARG_REG | EMD_FL_ARG_SHORT7 | EMD_FL_ARG_RELATIVE | EMD_FL_ADDR_JUMP } },
+	{ O(064), VARMASK_DABC, { EMD_OP_CWT, EMD_FL_ARG_REG | EMD_FL_ARG_SHORT7 } },
+	{ O(065), VARMASK_DABC, { EMD_OP_LWT, EMD_FL_ARG_REG | EMD_FL_ARG_SHORT7 } },
+	{ O(066), VARMASK_DABC, { EMD_OP_LWS, EMD_FL_ARG_REG | EMD_FL_ARG_SHORT7 | EMD_FL_ARG_RELATIVE | EMD_FL_ADDR_WORD } },
+	{ O(067), VARMASK_DABC, { EMD_OP_RWS, EMD_FL_ARG_REG | EMD_FL_ARG_SHORT7 | EMD_FL_ARG_RELATIVE | EMD_FL_ADDR_WORD } },
 
-	{ 0020, OP_CIT, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0021, OP_SIL, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0022, OP_SIU, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0023, OP_SIT, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0024, OP_SINT, NULL, FL_ARG_NONE | FL_INS_OS | FL_INS_MX16 },
-	{ 0025, OP_NONE, NULL, FL_NONE },
-	{ 0026, OP_NONE, NULL, FL_NONE },
-	{ 0027, OP_NONE, NULL, FL_NONE },
+	{ O(070)+0000, VARMASK_DBC, { EMD_OP_UJS, EMD_FL_ARG_SHORT7 | EMD_FL_ARG_RELATIVE | EMD_FL_ADDR_JUMP } },
+	{ O(070)+0100, VARMASK_DBC, { EMD_OP_JLS, EMD_FL_ARG_SHORT7 | EMD_FL_ARG_RELATIVE | EMD_FL_ADDR_JUMP } },
+	{ O(070)+0200, VARMASK_DBC, { EMD_OP_JES, EMD_FL_ARG_SHORT7 | EMD_FL_ARG_RELATIVE | EMD_FL_ADDR_JUMP } },
+	{ O(070)+0300, VARMASK_DBC, { EMD_OP_JGS, EMD_FL_ARG_SHORT7 | EMD_FL_ARG_RELATIVE | EMD_FL_ADDR_JUMP } },
+	{ O(070)+0400, VARMASK_DBC, { EMD_OP_JVS, EMD_FL_ARG_SHORT7 | EMD_FL_ARG_RELATIVE | EMD_FL_ADDR_JUMP } },
+	{ O(070)+0500, VARMASK_DBC, { EMD_OP_JXS, EMD_FL_ARG_SHORT7 | EMD_FL_ARG_RELATIVE | EMD_FL_ADDR_JUMP } },
+	{ O(070)+0600, VARMASK_DBC, { EMD_OP_JYS, EMD_FL_ARG_SHORT7 | EMD_FL_ARG_RELATIVE | EMD_FL_ADDR_JUMP } },
+	{ O(070)+0700, VARMASK_DBC, { EMD_OP_JCS, EMD_FL_ARG_SHORT7 | EMD_FL_ARG_RELATIVE | EMD_FL_ADDR_JUMP } },
 
-	{ 0030, OP_GIU, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0031, OP_GIU, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0032, OP_GIU, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0033, OP_GIU, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0034, OP_GIU, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0035, OP_GIU, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0036, OP_GIU, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0037, OP_GIU, NULL, FL_ARG_NONE | FL_INS_OS },
+	{ O(071)+00000, VARMASK_BYTE, { EMD_OP_BLC, EMD_FL_ARG_SHORT8 } },
+	{ O(071)+00400, VARMASK_BYTE, { EMD_OP_EXL, EMD_FL_ARG_SHORT8 } },
+	{ O(071)+01000, VARMASK_BYTE, { EMD_OP_BRC, EMD_FL_ARG_SHORT8 } },
+	{ O(071)+01400, VARMASK_BYTE, { EMD_OP_NRF, EMD_FL_ARG_SHORT8 } },
 
-	{ 0040, OP_LIP, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0041, OP_LIP, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0042, OP_LIP, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0043, OP_LIP, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0044, OP_LIP, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0045, OP_LIP, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0046, OP_LIP, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0047, OP_LIP, NULL, FL_ARG_NONE | FL_INS_OS },
+	{ O(072)+00000, VARMASK_A,   { EMD_OP_RIC, EMD_FL_ARG_REG } },
+	{ O(072)+00001, VARMASK_A,   { EMD_OP_ZLB, EMD_FL_ARG_REG } },
+	{ O(072)+00002, VARMASK_A,   { EMD_OP_SXU, EMD_FL_ARG_REG } },
+	{ O(072)+00003, VARMASK_A,   { EMD_OP_NGA, EMD_FL_ARG_REG } },
+	{ O(072)+00004, VARMASK_A,   { EMD_OP_SLZ, EMD_FL_ARG_REG } },
+	{ O(072)+00005, VARMASK_A,   { EMD_OP_SLY, EMD_FL_ARG_REG } },
+	{ O(072)+00006, VARMASK_A,   { EMD_OP_SLX, EMD_FL_ARG_REG } },
+	{ O(072)+00007, VARMASK_A,   { EMD_OP_SRY, EMD_FL_ARG_REG } },
+	{ O(072)+00010, VARMASK_A,   { EMD_OP_NGL, EMD_FL_ARG_REG } },
+	{ O(072)+00011, VARMASK_A,   { EMD_OP_RPC, EMD_FL_ARG_REG } },
+	{ O(072)+00020, VARMASK_DAC, { EMD_OP_SHC, EMD_FL_ARG_REG | EMD_FL_ARG_SHORT4 } },
+	{ O(072)+01000, VARMASK_A,   { EMD_OP_RKY, EMD_FL_ARG_REG } },
+	{ O(072)+01001, VARMASK_A,   { EMD_OP_ZRB, EMD_FL_ARG_REG } },
+	{ O(072)+01002, VARMASK_A,   { EMD_OP_SXL, EMD_FL_ARG_REG } },
+	{ O(072)+01003, VARMASK_A,   { EMD_OP_NGC, EMD_FL_ARG_REG } },
+	{ O(072)+01004, VARMASK_A,   { EMD_OP_SVZ, EMD_FL_ARG_REG } },
+	{ O(072)+01005, VARMASK_A,   { EMD_OP_SVY, EMD_FL_ARG_REG } },
+	{ O(072)+01006, VARMASK_A,   { EMD_OP_SVX, EMD_FL_ARG_REG } },
+	{ O(072)+01007, VARMASK_A,   { EMD_OP_SRX, EMD_FL_ARG_REG } },
+	{ O(072)+01010, VARMASK_A,   { EMD_OP_SRZ, EMD_FL_ARG_REG } },
+	{ O(072)+01011, VARMASK_A,   { EMD_OP_LPC, EMD_FL_ARG_REG } },
 
-	{ 0050, OP_CRON, NULL, FL_ARG_NONE | FL_INS_OS | FL_INS_MX16 },
-	{ 0051, OP_NONE, NULL, FL_NONE },
-	{ 0052, OP_NONE, NULL, FL_NONE },
-	{ 0053, OP_NONE, NULL, FL_NONE },
-	{ 0054, OP_NONE, NULL, FL_NONE },
-	{ 0055, OP_NONE, NULL, FL_NONE },
-	{ 0056, OP_NONE, NULL, FL_NONE },
-	{ 0057, OP_NONE, NULL, FL_NONE },
+	{ O(073)+00000, VARMASK_DBC,  { EMD_OP_HLT,  EMD_FL_ARG_SHORT7 | EMD_FL_INS_OS } },
+	{ O(073)+00100, VARMASK_DBC,  { EMD_OP_MCL,  EMD_FL_ARG_NONE | EMD_FL_INS_OS } },
+	{ O(073)+00200, VARMASK_DB1C, { EMD_OP_CIT,  EMD_FL_ARG_NONE | EMD_FL_INS_OS } },
+	{ O(073)+00201, VARMASK_DB1C, { EMD_OP_SIL,  EMD_FL_ARG_NONE | EMD_FL_INS_OS } },
+	{ O(073)+00202, VARMASK_DB1C, { EMD_OP_SIU,  EMD_FL_ARG_NONE | EMD_FL_INS_OS } },
+	{ O(073)+00203, VARMASK_DB1C, { EMD_OP_SIT,  EMD_FL_ARG_NONE | EMD_FL_INS_OS } },
+	{ O(073)+00300, VARMASK_BC,   { EMD_OP_GIU,  EMD_FL_ARG_NONE | EMD_FL_INS_OS } },
+	{ O(073)+00400, VARMASK_DBC,  { EMD_OP_LIP,  EMD_FL_ARG_NONE | EMD_FL_INS_OS } },
+	{ O(073)+01300, VARMASK_BC,   { EMD_OP_GIL,  EMD_FL_ARG_NONE | EMD_FL_INS_OS } },
 
-	{ 0060, OP_NONE, NULL, FL_NONE },
-	{ 0061, OP_NONE, NULL, FL_NONE },
-	{ 0062, OP_NONE, NULL, FL_NONE },
-	{ 0063, OP_NONE, NULL, FL_NONE },
-	{ 0064, OP_NONE, NULL, FL_NONE },
-	{ 0065, OP_NONE, NULL, FL_NONE },
-	{ 0066, OP_NONE, NULL, FL_NONE },
-	{ 0067, OP_NONE, NULL, FL_NONE },
+	{ O(073)+00204, VARMASK_B23C, { EMD_OP_SINT, EMD_FL_ARG_NONE | EMD_FL_INS_OS | EMD_FL_INS_MX16 } },
+	{ O(073)+01204, VARMASK_B23C, { EMD_OP_SIND, EMD_FL_ARG_NONE | EMD_FL_INS_OS | EMD_FL_INS_MX16 } },
+	{ O(073)+00500, VARMASK_DBC,  { EMD_OP_CRON, EMD_FL_ARG_NONE | EMD_FL_INS_OS | EMD_FL_INS_MX16 } },
 
-	{ 0070, OP_NONE, NULL, FL_NONE },
-	{ 0071, OP_NONE, NULL, FL_NONE },
-	{ 0072, OP_NONE, NULL, FL_NONE },
-	{ 0073, OP_NONE, NULL, FL_NONE },
-	{ 0074, OP_NONE, NULL, FL_NONE },
-	{ 0075, OP_NONE, NULL, FL_NONE },
-	{ 0076, OP_NONE, NULL, FL_NONE },
-	{ 0077, OP_NONE, NULL, FL_NONE },
+	{ O(074)+0000, VARMASK_DBC, { EMD_OP_UJ, EMD_FL_ARG_NORM | EMD_FL_ADDR_JUMP } },
+	{ O(074)+0100, VARMASK_DBC, { EMD_OP_JL, EMD_FL_ARG_NORM | EMD_FL_ADDR_JUMP } },
+	{ O(074)+0200, VARMASK_DBC, { EMD_OP_JE, EMD_FL_ARG_NORM | EMD_FL_ADDR_JUMP } },
+	{ O(074)+0300, VARMASK_DBC, { EMD_OP_JG, EMD_FL_ARG_NORM | EMD_FL_ADDR_JUMP } },
+	{ O(074)+0400, VARMASK_DBC, { EMD_OP_JZ, EMD_FL_ARG_NORM | EMD_FL_ADDR_JUMP } },
+	{ O(074)+0500, VARMASK_DBC, { EMD_OP_JM, EMD_FL_ARG_NORM | EMD_FL_ADDR_JUMP } },
+	{ O(074)+0600, VARMASK_DBC, { EMD_OP_JN, EMD_FL_ARG_NORM | EMD_FL_ADDR_JUMP } },
+	{ O(074)+0700, VARMASK_DBC, { EMD_OP_LJ, EMD_FL_ARG_NORM | EMD_FL_ADDR_JUMP } },
 
-	{ 0100, OP_HLT, NULL, FL_ARG_SHORT7 | FL_INS_OS },
-	{ 0101, OP_HLT, NULL, FL_ARG_SHORT7 | FL_INS_OS },
-	{ 0102, OP_HLT, NULL, FL_ARG_SHORT7 | FL_INS_OS },
-	{ 0103, OP_HLT, NULL, FL_ARG_SHORT7 | FL_INS_OS },
-	{ 0104, OP_HLT, NULL, FL_ARG_SHORT7 | FL_INS_OS },
-	{ 0105, OP_HLT, NULL, FL_ARG_SHORT7 | FL_INS_OS },
-	{ 0106, OP_HLT, NULL, FL_ARG_SHORT7 | FL_INS_OS },
-	{ 0107, OP_HLT, NULL, FL_ARG_SHORT7 | FL_INS_OS },
+	{ O(075)+0000, VARMASK_DBC, { EMD_OP_LD, EMD_FL_ARG_NORM | EMD_FL_ADDR_WORD } },
+	{ O(075)+0100, VARMASK_DBC, { EMD_OP_LF, EMD_FL_ARG_NORM | EMD_FL_ADDR_WORD } },
+	{ O(075)+0200, VARMASK_DBC, { EMD_OP_LA, EMD_FL_ARG_NORM | EMD_FL_ADDR_WORD } },
+	{ O(075)+0300, VARMASK_DBC, { EMD_OP_LL, EMD_FL_ARG_NORM | EMD_FL_ADDR_WORD } },
+	{ O(075)+0400, VARMASK_DBC, { EMD_OP_TD, EMD_FL_ARG_NORM | EMD_FL_ADDR_WORD } },
+	{ O(075)+0500, VARMASK_DBC, { EMD_OP_TF, EMD_FL_ARG_NORM | EMD_FL_ADDR_WORD } },
+	{ O(075)+0600, VARMASK_DBC, { EMD_OP_TA, EMD_FL_ARG_NORM | EMD_FL_ADDR_WORD } },
+	{ O(075)+0700, VARMASK_DBC, { EMD_OP_TL, EMD_FL_ARG_NORM | EMD_FL_ADDR_WORD } },
 
-	{ 0110, OP_MCL, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0111, OP_MCL, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0112, OP_MCL, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0113, OP_MCL, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0114, OP_MCL, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0115, OP_MCL, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0116, OP_MCL, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0117, OP_MCL, NULL, FL_ARG_NONE | FL_INS_OS },
+	{ O(076)+0000, VARMASK_DBC, { EMD_OP_RD, EMD_FL_ARG_NORM | EMD_FL_ADDR_WORD } },
+	{ O(076)+0100, VARMASK_DBC, { EMD_OP_RF, EMD_FL_ARG_NORM | EMD_FL_ADDR_WORD } },
+	{ O(076)+0200, VARMASK_DBC, { EMD_OP_RA, EMD_FL_ARG_NORM | EMD_FL_ADDR_WORD } },
+	{ O(076)+0300, VARMASK_DBC, { EMD_OP_RL, EMD_FL_ARG_NORM | EMD_FL_ADDR_WORD } },
+	{ O(076)+0400, VARMASK_DBC, { EMD_OP_PD, EMD_FL_ARG_NORM | EMD_FL_ADDR_WORD } },
+	{ O(076)+0500, VARMASK_DBC, { EMD_OP_PF, EMD_FL_ARG_NORM | EMD_FL_ADDR_WORD } },
+	{ O(076)+0600, VARMASK_DBC, { EMD_OP_PA, EMD_FL_ARG_NORM | EMD_FL_ADDR_WORD } },
+	{ O(076)+0700, VARMASK_DBC, { EMD_OP_PL, EMD_FL_ARG_NORM | EMD_FL_ADDR_WORD } },
 
-	{ 0120, OP_CIT, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0121, OP_SIL, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0122, OP_SIU, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0123, OP_SIT, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0124, OP_SIND, NULL, FL_ARG_NONE | FL_INS_OS | FL_INS_MX16 },
-	{ 0125, OP_NONE, NULL, FL_NONE },
-	{ 0126, OP_NONE, NULL, FL_NONE },
-	{ 0127, OP_NONE, NULL, FL_NONE },
+	{ O(077)+0000, VARMASK_DBC, { EMD_OP_MB, EMD_FL_ARG_NORM | EMD_FL_ADDR_WORD | EMD_FL_INS_OS } },
+	{ O(077)+0100, VARMASK_DBC, { EMD_OP_IM, EMD_FL_ARG_NORM | EMD_FL_ADDR_WORD | EMD_FL_INS_OS } },
+	{ O(077)+0200, VARMASK_DBC, { EMD_OP_KI, EMD_FL_ARG_NORM | EMD_FL_ADDR_WORD | EMD_FL_INS_OS } },
+	{ O(077)+0300, VARMASK_DBC, { EMD_OP_FI, EMD_FL_ARG_NORM | EMD_FL_ADDR_WORD | EMD_FL_INS_OS } },
+	{ O(077)+0400, VARMASK_DBC, { EMD_OP_SP, EMD_FL_ARG_NORM | EMD_FL_ADDR_WORD | EMD_FL_INS_OS } },
+	{ O(077)+0500, VARMASK_DBC, { EMD_OP_MD, EMD_FL_ARG_NORM } },
+	{ O(077)+0600, VARMASK_DBC, { EMD_OP_RZ, EMD_FL_ARG_NORM | EMD_FL_ADDR_WORD } },
+	{ O(077)+0700, VARMASK_DBC, { EMD_OP_IB, EMD_FL_ARG_NORM | EMD_FL_ADDR_WORD } },
 
-	{ 0130, OP_GIL, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0131, OP_GIL, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0132, OP_GIL, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0133, OP_GIL, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0134, OP_GIL, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0135, OP_GIL, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0136, OP_GIL, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0137, OP_GIL, NULL, FL_ARG_NONE | FL_INS_OS },
-
-	{ 0141, OP_LIP, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0140, OP_LIP, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0142, OP_LIP, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0143, OP_LIP, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0145, OP_LIP, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0144, OP_LIP, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0146, OP_LIP, NULL, FL_ARG_NONE | FL_INS_OS },
-	{ 0147, OP_LIP, NULL, FL_ARG_NONE | FL_INS_OS },
-
-	{ 0150, OP_NONE, NULL, FL_NONE },
-	{ 0151, OP_NONE, NULL, FL_NONE },
-	{ 0152, OP_NONE, NULL, FL_NONE },
-	{ 0153, OP_NONE, NULL, FL_NONE },
-	{ 0154, OP_NONE, NULL, FL_NONE },
-	{ 0155, OP_NONE, NULL, FL_NONE },
-	{ 0156, OP_NONE, NULL, FL_NONE },
-	{ 0157, OP_NONE, NULL, FL_NONE },
-
-	{ 0160, OP_NONE, NULL, FL_NONE },
-	{ 0161, OP_NONE, NULL, FL_NONE },
-	{ 0162, OP_NONE, NULL, FL_NONE },
-	{ 0163, OP_NONE, NULL, FL_NONE },
-	{ 0164, OP_NONE, NULL, FL_NONE },
-	{ 0165, OP_NONE, NULL, FL_NONE },
-	{ 0166, OP_NONE, NULL, FL_NONE },
-	{ 0167, OP_NONE, NULL, FL_NONE },
-
-	{ 0170, OP_NONE, NULL, FL_NONE },
-	{ 0171, OP_NONE, NULL, FL_NONE },
-	{ 0172, OP_NONE, NULL, FL_NONE },
-	{ 0173, OP_NONE, NULL, FL_NONE },
-	{ 0174, OP_NONE, NULL, FL_NONE },
-	{ 0175, OP_NONE, NULL, FL_NONE },
-	{ 0176, OP_NONE, NULL, FL_NONE },
-	{ 0177, OP_NONE, NULL, FL_NONE }
-
-};
-
-static const struct opdef iset_74[] = {
-	{ 0, OP_UJ, NULL, FL_ARG_NORM | FL_ADDR_JUMP },
-	{ 1, OP_JL, NULL, FL_ARG_NORM | FL_ADDR_JUMP },
-	{ 2, OP_JE, NULL, FL_ARG_NORM | FL_ADDR_JUMP },
-	{ 3, OP_JG, NULL, FL_ARG_NORM | FL_ADDR_JUMP },
-	{ 4, OP_JZ, NULL, FL_ARG_NORM | FL_ADDR_JUMP },
-	{ 5, OP_JM, NULL, FL_ARG_NORM | FL_ADDR_JUMP },
-	{ 6, OP_JN, NULL, FL_ARG_NORM | FL_ADDR_JUMP },
-	{ 7, OP_LJ, NULL, FL_ARG_NORM | FL_ADDR_JUMP }
-};
-
-static const struct opdef iset_75[] = {
-	{ 0, OP_LD, NULL, FL_ARG_NORM | FL_ADDR_WORD },
-	{ 1, OP_LF, NULL, FL_ARG_NORM | FL_ADDR_WORD },
-	{ 2, OP_LA, NULL, FL_ARG_NORM | FL_ADDR_WORD },
-	{ 3, OP_LL, NULL, FL_ARG_NORM | FL_ADDR_WORD },
-	{ 4, OP_TD, NULL, FL_ARG_NORM | FL_ADDR_WORD },
-	{ 5, OP_TF, NULL, FL_ARG_NORM | FL_ADDR_WORD },
-	{ 6, OP_TA, NULL, FL_ARG_NORM | FL_ADDR_WORD },
-	{ 7, OP_TL, NULL, FL_ARG_NORM | FL_ADDR_WORD }
-};
-
-static const struct opdef iset_76[] = {
-	{ 0, OP_RD, NULL, FL_ARG_NORM | FL_ADDR_WORD },
-	{ 1, OP_RF, NULL, FL_ARG_NORM | FL_ADDR_WORD },
-	{ 2, OP_RA, NULL, FL_ARG_NORM | FL_ADDR_WORD },
-	{ 3, OP_RL, NULL, FL_ARG_NORM | FL_ADDR_WORD },
-	{ 4, OP_PD, NULL, FL_ARG_NORM | FL_ADDR_WORD },
-	{ 5, OP_PF, NULL, FL_ARG_NORM | FL_ADDR_WORD },
-	{ 6, OP_PA, NULL, FL_ARG_NORM | FL_ADDR_WORD },
-	{ 7, OP_PL, NULL, FL_ARG_NORM | FL_ADDR_WORD }
-};
-
-static const struct opdef iset_77[] = {
-	{ 0, OP_MB, NULL, FL_ARG_NORM | FL_ADDR_WORD | FL_INS_OS },
-	{ 1, OP_IM, NULL, FL_ARG_NORM | FL_ADDR_WORD | FL_INS_OS },
-	{ 2, OP_KI, NULL, FL_ARG_NORM | FL_ADDR_WORD | FL_INS_OS },
-	{ 3, OP_FI, NULL, FL_ARG_NORM | FL_ADDR_WORD | FL_INS_OS },
-	{ 4, OP_SP, NULL, FL_ARG_NORM | FL_ADDR_WORD | FL_INS_OS },
-	{ 5, OP_MD, NULL, FL_ARG_NORM },
-	{ 6, OP_RZ, NULL, FL_ARG_NORM | FL_ADDR_WORD },
-	{ 7, OP_IB, NULL, FL_ARG_NORM | FL_ADDR_WORD }
+	{ 0, 0, { 0, 0 } }
 };
 
 // -----------------------------------------------------------------------
-const struct opdef * emdas_get_op(uint16_t opcode)
+static int emdas_iset_register_op(struct emdas_op *op_tab, uint16_t opcode, uint16_t mask, struct emdas_op *op)
 {
-	const struct opdef *opdef = iset + _OP(opcode);
-	if (!opdef->extop_fun) {
-		return opdef;
-	} else {
-		return opdef->extop_fun(opcode);
+	int i, pos;
+	int offsets[16];
+	int one_count = 0;
+	int max;
+	uint16_t result;
+
+	// if mask is empty - nothing to do
+	if (mask == 0) return -1;
+
+	// store 1's positions in mask, count 1's
+	for (i=0 ; i<16 ; i++) {
+		if (mask & (1<<i)) {
+			offsets[one_count] = i;
+			one_count++;
+		}
 	}
+
+	max = (1 << one_count) - 1;
+
+	// iterate over all variants (as indicated by the mask)
+	for (i=0 ; i<=max ; i++) {
+		result = 0;
+
+		// shift 1's into positions
+		for (pos=one_count-1 ; pos>=0 ; pos--) {
+			result |= ((i >> pos) & 1) << offsets[pos];
+		}
+
+		// register the op
+		int dopcode = opcode | result;
+		struct emdas_op *dop = op_tab + (dopcode);
+
+		dop->id = op->id;
+		dop->flags = op->flags;
+
+		// set norm arg flags
+		if (dop->flags & EMD_FL_ARG_NORM) {
+			if (!_C(dopcode)) dop->flags |= EMD_FL_2WORD;
+			if (_D(dopcode)) dop->flags |= EMD_FL_MOD_D;
+			if (_B(dopcode)) dop->flags |= EMD_FL_MOD_B;
+		}
+
+		// check for argument that reffers to cpuflags
+		// (instruction is a bit-branch and register is r0)
+		if (((dop->id >= EMD_OP_BB) && (dop->id <= EMD_OP_BN) && (_A(dopcode) == 0))
+		|| (dop->id == EMD_OP_BRC)
+		|| (dop->id == EMD_OP_BLC)) {
+			dop->flags |= EMD_FL_ARG_FLAGS;
+		}
+	}
+	return 0;
 }
 
 // -----------------------------------------------------------------------
-static const struct opdef * get_extop_37(uint16_t opcode)
+struct emdas_op * emdas_iset_create(int type)
 {
-	return iset_37 + _A(opcode);
+	int res;
+
+	struct emdas_op *op_tab = malloc(sizeof(struct emdas_op) * 0x10000);
+	if (!op_tab) {
+		return NULL;
+	}
+
+	// initialize instruction decoder
+	struct emdas_instr *instr = emdas_ilist;
+	while (instr->var_mask) {
+		if (!(instr->op.flags & EMD_FL_INS_MX16) || ((type == EMD_ISET_MX16) && (instr->op.flags & EMD_FL_INS_MX16))) {
+			res = emdas_iset_register_op(op_tab, instr->opcode, instr->var_mask, &instr->op);
+			if (res) {
+				free(op_tab);
+				return NULL;
+			}
+		}
+		instr++;
+	}
+	return op_tab;
 }
 
 // -----------------------------------------------------------------------
-static const struct opdef * get_extop_70(uint16_t opcode)
+void emdas_iset_destroy(struct emdas_op *op_tab)
 {
-	return iset_70 + _A(opcode);
+	free(op_tab);
 }
-
-// -----------------------------------------------------------------------
-static const struct opdef * get_extop_71(uint16_t opcode)
-{
-	return iset_71 + ((opcode & 0b0000001100000000) >> 8);
-}
-
-// -----------------------------------------------------------------------
-static const struct opdef * get_extop_72(uint16_t opcode)
-{
-	return iset_72 + (((opcode & 0b0000001000000000) >> 3) | (opcode & 0b0000000000111111));
-}
-
-// -----------------------------------------------------------------------
-static const struct opdef * get_extop_73(uint16_t opcode)
-{
-	return iset_73 + (((opcode & 0b0000001111000000) >> 3) | (opcode & 0b0000000000000111));
-}
-
-// -----------------------------------------------------------------------
-static const struct opdef * get_extop_74(uint16_t opcode)
-{
-	return iset_74 + _A(opcode);
-}
-
-// -----------------------------------------------------------------------
-static const struct opdef * get_extop_75(uint16_t opcode)
-{
-	return iset_75 + _A(opcode);
-}
-
-// -----------------------------------------------------------------------
-static const struct opdef * get_extop_76(uint16_t opcode)
-{
-	return iset_76 + _A(opcode);
-}
-
-// -----------------------------------------------------------------------
-static const struct opdef * get_extop_77(uint16_t opcode)
-{
-	return iset_77 + _A(opcode);
-}
-
 
 // vim: tabstop=4 shiftwidth=4 autoindent
