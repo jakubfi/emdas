@@ -19,16 +19,12 @@
 #include <stdio.h>
 
 #include "emdas.h"
-#include "p_emdas.h"
+#include "opfields.h"
 
 // -----------------------------------------------------------------------
-struct emdas *emdas_create(int iset_type, int printer_type, emdas_getfun getfun)
+struct emdas *emdas_create(int iset_type, emdas_getfun getfun)
 {
 	struct emdas *emd = NULL;
-
-	if ((printer_type != EMD_PRINTER_DEFAULT) && (printer_type != EMD_PRINTER_EMDAS)) {
-		goto cleanup;
-	}
 
 	if (!getfun) {
 		goto cleanup;
@@ -52,10 +48,6 @@ struct emdas *emdas_create(int iset_type, int printer_type, emdas_getfun getfun)
 	emd->memget = getfun;
 	emdas_set_features(emd, EMD_FEAT_ADDR | EMD_FEAT_LABELS | EMD_FEAT_ALTS);
 	emdas_set_tabs(emd, 0, 10, 20, 25, 50);
-
-	// this is hardcoded for now
-	emd->mnemo = emdas_p_emdas_mnemo;
-	emd->build_arg_fun = emdas_p_emdas_build_arg;
 
 	return emd;
 
@@ -112,6 +104,98 @@ char * emdas_get_buf(struct emdas *emd)
 }
 
 // -----------------------------------------------------------------------
+static int emdas_print_flags(struct emdas_buf *buf, uint16_t flags)
+{
+	static char allflags[] = "ZMVCLEGYX1234567";
+	char flagset[18];
+
+	int fpos = 0;
+
+	flagset[fpos++] = '?';
+
+	for (int i=15 ; i>=0 ; i--) {
+		if (flags & (1<<i)) {
+			flagset[fpos++] = allflags[15-i];
+		}
+	}
+
+	flagset[fpos] = '\0';
+
+	return emdas_buf_s(buf, "%s", flagset);
+}
+
+// -----------------------------------------------------------------------
+static void emdas_print_arg(struct emdas_buf *buf, uint16_t vop, struct emdas_op *op, uint16_t *varg)
+{
+	// register argument
+	if (op->flags & EMD_FL_ARG_REG) {
+		if (op->flags & EMD_FL_ARG2) {
+			// arguments continue
+			emdas_buf_i(buf, "r%i, ", _A(vop));
+		} else {
+			// register is the only argument
+			emdas_buf_i(buf, "r%i", _A(vop));
+			return;
+		}
+	}
+
+	// short 4-bit argument
+	if (op->flags & EMD_FL_ARG_SHORT4) {
+		emdas_buf_i(buf, "%i", _t(vop));
+
+	// short 7-bit argument
+	} else if (op->flags & EMD_FL_ARG_SHORT7) {
+		emdas_buf_i(buf, "%i", _T(vop));
+
+	// short 8-bit argument
+	} else if (op->flags & EMD_FL_ARG_SHORT8) {
+		uint16_t arg = _b(vop);
+		// BRC and BLC args always refer to CPU flags
+		if (op->flags & EMD_FL_ARG_FLAGS) {
+			// correction for BLC argument
+			if (op->id == EMD_OP_BLC) arg <<= 8;
+			emdas_print_flags(buf, arg);
+		} else {
+			emdas_buf_i(buf, "%d", arg);
+		}
+
+	// normal argument
+	} else if (op->flags & EMD_FL_ARG_NORM) {
+		if (op->flags & EMD_FL_MOD_D) emdas_buf_c(buf, '[');
+
+		// 2nd arg
+		if (op->flags & EMD_FL_2WORD) {
+			// no memory
+			if (!varg) {
+				emdas_buf_s(buf, "%s", "???");
+			// print small integers as decimal
+			} else if (*varg < 16) {
+				emdas_buf_i(buf, "%i", *varg);
+			} else {
+				// arg refers to CPU flags
+				if (op->flags & EMD_FL_ARG_FLAGS) {
+					emdas_print_flags(buf, *varg);
+				// hex constant
+				} else {
+					emdas_buf_i(buf, "0x%04x", *varg);
+				}
+			}
+
+		// rC
+		} else {
+			emdas_buf_i(buf, "r%d", _C(vop));
+		}
+
+		// rB
+		if (op->flags & EMD_FL_MOD_B) {
+			emdas_buf_i(buf, "+r%d", _B(vop));
+		}
+
+		if (op->flags & EMD_FL_MOD_D) emdas_buf_c(buf, ']');
+	}
+}
+
+// -----------------------------------------------------------------------
 int emdas_dasm(struct emdas *emd, int nb, uint16_t addr)
 {
 	int len = 1;
@@ -133,7 +217,7 @@ int emdas_dasm(struct emdas *emd, int nb, uint16_t addr)
 	vop = emd->memget(nb, addr);
 	if (vop) {
 		op = emd->ops + *vop;
-		int len = emdas_buf_ts(emd->dbuf, emd->tabs.mnemo, "%s", emd->mnemo[op->id]);
+		int len = emdas_buf_ts(emd->dbuf, emd->tabs.mnemo, "%s", emdas_iset_mnemo[op->id]);
 		if (emd->features & EMD_FEAT_LMNEMO) {
 			emdas_buf_tolower(emd->dbuf, len);
 		}
@@ -156,7 +240,7 @@ int emdas_dasm(struct emdas *emd, int nb, uint16_t addr)
 				varg = emd->memget(nb, addr+1);
 				len++;
 			}
-			emd->build_arg_fun(emd->dbuf, *vop, op, varg);
+			emdas_print_arg(emd->dbuf, *vop, op, varg);
 		}
 	}
 
@@ -176,6 +260,5 @@ fin:
 	emdas_buf_nl(emd->dbuf);
 	return len;
 }
-
 
 // vim: tabstop=4 shiftwidth=4 autoindent

@@ -25,12 +25,6 @@
 
 #define EMD_DASM_BUF_SIZE 4096
 
-enum emdas_printer_type {
-	EMD_PRINTER_EMDAS,
-};
-
-#define EMD_PRINTER_DEFAULT EMD_PRINTER_EMDAS
-
 enum emdas_features {
 	EMD_FEAT_NONE		= 0,
 	EMD_FEAT_ADDR		= 1 << 0,	// print addresses
@@ -62,12 +56,9 @@ struct emdas {
 		int arg;
 		int alt;
 	} tabs;
-
-	char **mnemo;
-	void (*build_arg_fun)(struct emdas_buf *buf, uint16_t vop, struct emdas_op *op, uint16_t *varg);
 };
 
-struct emdas *emdas_create(int iset_type, int printer_type, emdas_getfun getfun);
+struct emdas *emdas_create(int iset_type, emdas_getfun getfun);
 void emdas_destroy(struct emdas *emd);
 
 unsigned emdas_get_features(struct emdas *emd);

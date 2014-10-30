@@ -1,7 +1,6 @@
 add_library(emdas-lib SHARED
 	iset.c
 	buf.c
-	p_emdas.c
 	libemdas.c
 )
 

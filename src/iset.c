@@ -21,6 +21,27 @@
 #include "emdas/iset.h"
 #include "opfields.h"
 
+char *emdas_iset_mnemo[EMD_OP_MAX] = {
+			".word",
+/* NORM */	"LW", "TW", "LS", "RI", "RW", "PW", "RJ", "IS",
+			"BB", "BM", "BS", "BC", "BN", "OU", "IN",
+/* F/D */	"AD", "SD", "MW", "DW", "AF", "SF", "MF", "DF",
+/* NORM */	"AW", "AC", "SW", "CW", "OR", "OM", "NR", "NM",
+			"ER", "EM", "XR", "XM", "CL", "LB", "RB", "CB",
+/* KA1 */	"AWT", "TRB", "IRB", "DRB", "CWT", "LWT", "LWS", "RWS",
+/* JS */	"UJS", "NOP", "JLS", "JES", "JGS", "JVS", "JXS", "JYS", "JCS",
+/* KA2 */	"BLC", "EXL", "BRC", "NRF",
+/* C */		"RIC", "ZLB", "SXU", "NGA", "SLZ", "SLY", "SLX", "SRY", "NGL", "RPC",
+			"SHC",
+			"RKY", "ZRB", "SXL", "NGC", "SVZ", "SVY", "SVX", "SRX", "SRZ", "LPC",
+/* S */		"HLT", "MCL", "CIT", "SIL", "SIU", "SIT", "GIU", "LIP", "GIL",
+			"CRON", "SINT", "SIND",
+/* J */		"UJ", "JL", "JE", "JG", "JZ", "JM", "JN", "LJ",
+/* L */		"LD", "LF", "LA", "LL", "TD", "TF", "TA", "TL",
+/* G */		"RD", "RF", "RA", "RL", "PD", "PF", "PA", "PL",
+/* B/N */	"MB", "IM", "KI", "FI", "SP", "MD", "RZ", "IB"
+};
+
 // varmasks tell which bits contain variable instruction elements
 enum emdas_iset_var_masks {
 	VARMASK_ALL		= 0b1111111111111111,

@@ -136,7 +136,7 @@ int main(int argc, char **argv)
 		goto cleanup;
 	}
 
-	emd = emdas_create(iset, EMD_PRINTER_DEFAULT, memget);
+	emd = emdas_create(iset, memget);
 	if (!emd) {
 		printf("Cannot setup disassembler.\n");
 		goto cleanup;
