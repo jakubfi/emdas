@@ -218,6 +218,28 @@ static void emdas_print_op(struct emdas *emd, struct emdas_op *op)
 }
 
 // -----------------------------------------------------------------------
+static void emdas_print_comment(struct emdas *emd, struct emdas_op *op, uint16_t *varg)
+{
+	emdas_buf_i(emd->dbuf, "; .word 0x%04x", op->v);
+	if (op->flags & EMD_FL_2WORD) {
+		if (varg) {
+			struct emdas_op *aop = emd->ops + *varg;
+			if (aop->id != EMD_OP_NONE) {
+				emdas_buf_s(emd->dbuf, "%s", " ; ");
+				emdas_print_op(emd, aop);
+				emdas_buf_c(emd->dbuf, ' ');
+				emdas_print_arg(emd, aop, NULL);
+			} else {
+				emdas_buf_i(emd->dbuf, ", 0x%04x", aop->v);
+			}
+		} else {
+			// cannot read memory
+			emdas_buf_s(emd->dbuf, ", %s", "???");
+		}
+	}
+}
+
+// -----------------------------------------------------------------------
 int emdas_dasm(struct emdas *emd, int nb, uint16_t addr)
 {
 	int len = 0;
@@ -229,11 +251,13 @@ int emdas_dasm(struct emdas *emd, int nb, uint16_t addr)
 
 	// 1. print address
 	if (emd->features & EMD_FEAT_ADDR) {
-		emdas_buf_ti(emd->dbuf, emd->tabs.addr, "0x%04x:", addr);
+		emdas_buf_tab(emd->dbuf, emd->tabs.addr);
+		emdas_buf_i(emd->dbuf, "0x%04x:", addr);
 	}
 
 	// 2. print label
 	if (emd->features & EMD_FEAT_LABELS) {
+		emdas_buf_tab(emd->dbuf, emd->tabs.label);
 	}
 
 	// get instruction opcode
@@ -258,24 +282,10 @@ int emdas_dasm(struct emdas *emd, int nb, uint16_t addr)
 		emdas_buf_tab(emd->dbuf, emd->tabs.arg);
 		emdas_print_arg(emd, op, varg);
 
-		// 5. print comment
+		// 5. print comment with alternatives
 		if ((emd->features & EMD_FEAT_ALTS) && (op->id != EMD_OP_NONE)) {
-			emdas_buf_ti(emd->dbuf, emd->tabs.alt, "; .word 0x%04x", *vop);
-			if (op->flags & EMD_FL_2WORD) {
-				if (varg) {
-					struct emdas_op *aop = emd->ops + *varg;
-					if (aop->id != EMD_OP_NONE) {
-						emdas_buf_s(emd->dbuf, "%s", " ; ");
-						emdas_print_op(emd, aop);
-						emdas_buf_c(emd->dbuf, ' ');
-						emdas_print_arg(emd, aop, NULL);
-					} else {
-						emdas_buf_i(emd->dbuf, ", 0x%04x", aop->v);
-					}
-				} else {
-					emdas_buf_s(emd->dbuf, ", %s", "???");
-				}
-			}
+			emdas_buf_tab(emd->dbuf, emd->tabs.alt);
+			emdas_print_comment(emd, op, varg);
 		}
 	}
 

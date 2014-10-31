@@ -152,32 +152,6 @@ int emdas_buf_tab(struct emdas_buf *buf, int tab)
 }
 
 // -----------------------------------------------------------------------
-int emdas_buf_ti(struct emdas_buf *buf, int tab, const char *fmt, int i)
-{
-	if (!buf) return 0;
-
-	int clen = 0;
-
-	clen += emdas_buf_tab(buf, tab);
-	clen += emdas_buf_i(buf, fmt, i);
-
-	return clen;
-}
-
-// -----------------------------------------------------------------------
-int emdas_buf_ts(struct emdas_buf *buf, int tab, const char *fmt, char *s)
-{
-	if (!buf) return 0;
-
-	int clen = 0;
-
-	clen += emdas_buf_tab(buf, tab);
-	clen += emdas_buf_s(buf, fmt, s);
-
-	return clen;
-}
-
-// -----------------------------------------------------------------------
 int emdas_buf_tolower(struct emdas_buf *buf, int back)
 {
 	if (!buf) return 0;
