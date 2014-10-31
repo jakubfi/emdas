@@ -106,12 +106,13 @@ char * emdas_get_buf(struct emdas *emd)
 // -----------------------------------------------------------------------
 static int emdas_print_flags(struct emdas_buf *buf, uint16_t flags)
 {
-	static char allflags[] = "ZMVCLEGYX1234567";
-	char flagset[18];
+	static const char allflags[] = "ZMVCLEGYX1234567";
+	char flagset[18] = "?";
+	int fpos = 1;
 
-	int fpos = 0;
-
-	flagset[fpos++] = '?';
+	if (flags == 0) {
+		return emdas_buf_i(buf, "%i", 0);
+	}
 
 	for (int i=15 ; i>=0 ; i--) {
 		if (flags & (1<<i)) {
@@ -286,6 +287,10 @@ int emdas_dasm(struct emdas *emd, int nb, uint16_t addr)
 		if ((emd->features & EMD_FEAT_ALTS) && (op->id != EMD_OP_NONE)) {
 			emdas_buf_tab(emd->dbuf, emd->tabs.alt);
 			emdas_print_comment(emd, op, varg);
+		}
+
+		// handle additional IN/OU "arguments"
+		if (op->flags & EMD_FL_INS_IO) {
 		}
 	}
 
