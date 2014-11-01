@@ -20,6 +20,8 @@
 #include <getopt.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <emelf.h>
 
 #include "emdas.h"
@@ -37,7 +39,8 @@ int bin_size;
 // -----------------------------------------------------------------------
 void usage()
 {
-	printf("Usage: emdas [options] input\n"
+	printf(
+		"Usage: emdas [options] input\n"
 		"Where options are one or more of:\n"
 		"   -x          : use extended MX-16 instruction set\n"
 		"   -l          : use lowercase mnemonics\n"
@@ -122,12 +125,22 @@ int main(int argc, char **argv)
 	int ret = -1;
 	struct emdas *emd = NULL;
 	struct emelf *e = NULL;
+	struct stat sb;
 
 	res = parse_args(argc, argv);
 	if (res) {
 		printf("\n");
 		usage();
 		goto cleanup;
+	}
+
+	if (stat(input_file, &sb) == -1) {
+		printf("Cannot stat file '%s'.\n", input_file);
+		goto cleanup;
+	}
+
+	if (sb.st_size > 2*(0x10000-base_addr)) {
+		fprintf(stderr, "Warning: File is bigger than available address space (%li bytes > %i words). Output will be truncated.\n", sb.st_size, 0x10000-base_addr);
 	}
 
 	fi = fopen(input_file, "r");
