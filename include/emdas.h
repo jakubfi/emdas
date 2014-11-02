@@ -22,6 +22,7 @@
 
 #include "emdas/buf.h"
 #include "emdas/iset.h"
+#include "emdas/dh.h"
 
 #define EMD_DASM_BUF_SIZE 4096
 
@@ -56,6 +57,8 @@ struct emdas {
 		int arg;
 		int alt;
 	} tabs;
+
+	struct emdas_dh_table *cellinfo[16];
 };
 
 struct emdas *emdas_create(int iset_type, emdas_getfun getfun);
@@ -64,9 +67,10 @@ void emdas_destroy(struct emdas *emd);
 unsigned emdas_get_features(struct emdas *emd);
 int emdas_set_features(struct emdas *emd, unsigned features);
 int emdas_set_tabs(struct emdas *emd, unsigned addr, unsigned label, unsigned mnemo, unsigned arg, unsigned alt);
+char * emdas_get_buf(struct emdas *emd);
 
 int emdas_dasm(struct emdas *emd, int nb, uint16_t addr);
-char * emdas_get_buf(struct emdas *emd);
+void emdas_analyze(struct emdas *emd, int nb, uint16_t addr, int size);
 
 #endif
 

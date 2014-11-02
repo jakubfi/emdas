@@ -22,23 +22,39 @@
 
 #define EMD_HASH_SIZE 1024
 
-struct emd_dh_elem {
+enum emdas_lab_types {
+	EMD_LAB_NONE = 0,
+	EMD_LAB_JUMP,
+	EMD_LAB_CALL,
+	EMD_LAB_IO_NO,
+	EMD_LAB_IO_EN,
+	EMD_LAB_IO_OK,
+	EMD_LAB_IO_PE,
+	EMD_LAB_BYTE,
+	EMD_LAB_WORD,
+	EMD_LAB_DWORD,
+	EMD_LAB_FLOAT,
+};
+
+extern char *emdas_lab_types[];
+
+struct emdas_dh_elem {
 	uint16_t addr;
 	short type;
 	unsigned flags;
-	struct emd_dh_elem *next;
+	struct emdas_dh_elem *next;
 };
 
-struct emd_dh_table {
-	struct emd_dh_elem **slots;
+struct emdas_dh_table {
+	struct emdas_dh_elem **slots;
 };
 
-struct emd_dh_table * emd_dh_create();
-unsigned emd_dh_hash(struct emd_dh_table *dh, uint16_t addr);
-struct emd_dh_elem * emd_dh_get(struct emd_dh_table *dh, uint16_t addr);
-struct emd_dh_elem * emd_dh_add(struct emd_dh_table *dh, uint16_t addr, short type, unsigned flags);
-int emd_dh_delete(struct emd_dh_table *dh, uint16_t addr);
-void emd_dh_destroy(struct emd_dh_table *dh);
+struct emdas_dh_table * emdas_dh_create();
+unsigned emdas_dh_hash(struct emdas_dh_table *dh, uint16_t addr);
+struct emdas_dh_elem * emdas_dh_get(struct emdas_dh_table *dh, uint16_t addr);
+struct emdas_dh_elem * emdas_dh_add(struct emdas_dh_table *dh, uint16_t addr, short type, unsigned flags);
+int emdas_dh_delete(struct emdas_dh_table *dh, uint16_t addr);
+void emdas_dh_destroy(struct emdas_dh_table *dh);
 
 #endif
 

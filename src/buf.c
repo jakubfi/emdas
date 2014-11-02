@@ -128,6 +128,19 @@ int emdas_buf_s(struct emdas_buf *buf, const char *fmt, char *s)
 }
 
 // -----------------------------------------------------------------------
+int emdas_buf_si(struct emdas_buf *buf, const char *fmt, char *s, int i)
+{
+	if (!buf) return 0;
+
+	int clen = snprintf(buf->buf + buf->pos, buf->len - buf->pos, fmt, s, i);
+	buf->lpos += clen;
+	buf->pos += clen;
+	buf->buf[buf->pos] = '\0';
+
+	return clen;
+}
+
+// -----------------------------------------------------------------------
 int emdas_buf_tab(struct emdas_buf *buf, int tab)
 {
 	if (!buf) return 0;

@@ -33,6 +33,7 @@ int emdas_buf_reset(struct emdas_buf *buf);
 int emdas_buf_nl(struct emdas_buf *buf);
 int emdas_buf_i(struct emdas_buf *buf, const char *fmt, int i);
 int emdas_buf_s(struct emdas_buf *buf, const char *fmt, char *s);
+int emdas_buf_si(struct emdas_buf *buf, const char *fmt, char *s, int i);
 int emdas_buf_c(struct emdas_buf *buf, char c);
 int emdas_buf_tab(struct emdas_buf *buf, int tab);
 int emdas_buf_ti(struct emdas_buf *buf, int tab, const char *fmt, int i);

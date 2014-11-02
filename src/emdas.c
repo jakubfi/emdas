@@ -200,6 +200,10 @@ int main(int argc, char **argv)
 	}
 
 	// disassemble and write output
+	if (features & EMD_FEAT_LABELS) {
+		emdas_analyze(emd, 0, base_addr, bin_size);
+	}
+
 	int ic = base_addr;
 	while (ic < base_addr+bin_size) {
 		ic += emdas_dasm(emd, 0, ic);

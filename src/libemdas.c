@@ -35,6 +35,10 @@ struct emdas *emdas_create(int iset_type, emdas_getfun getfun)
 		goto cleanup;
 	}
 
+	for (int i=0 ; i<16 ; i++) {
+		emd->cellinfo[i] = NULL;
+	}
+
 	emd->ops = emdas_iset_create(iset_type);
 	if (!emd->ops) {
 		goto cleanup;
@@ -60,6 +64,10 @@ cleanup:
 void emdas_destroy(struct emdas *emd)
 {
 	if (!emd) return;
+
+	for (int i=0 ; i<16 ; i++) {
+		emdas_dh_destroy(emd->cellinfo[i]);
+	}
 
 	emdas_iset_destroy(emd->ops);
 	emdas_buf_destroy(emd->dbuf);
@@ -247,6 +255,16 @@ static void emdas_print_comment(struct emdas *emd, struct emdas_op *op, uint16_t
 }
 
 // -----------------------------------------------------------------------
+static void emdas_print_label(struct emdas *emd, int nb, uint16_t addr)
+{
+	struct emdas_dh_elem *lab = emdas_dh_get(emd->cellinfo[nb], addr);
+	if (lab) {
+		emdas_buf_tab(emd->dbuf, emd->tabs.label);
+		emdas_buf_si(emd->dbuf, "%s_%x:", emdas_lab_types[lab->type], lab->addr);
+	}
+}
+
+// -----------------------------------------------------------------------
 static int emdas_print(struct emdas *emd, int nb, uint16_t addr, int as_data)
 {
 	int len = 1;
@@ -262,7 +280,7 @@ static int emdas_print(struct emdas *emd, int nb, uint16_t addr, int as_data)
 
 	// 2. print label
 	if (emd->features & EMD_FEAT_LABELS) {
-		emdas_buf_tab(emd->dbuf, emd->tabs.label);
+		emdas_print_label(emd, nb, addr);
 	}
 
 	emdas_buf_tab(emd->dbuf, emd->tabs.mnemo);
@@ -323,6 +341,103 @@ int emdas_dasm(struct emdas *emd, int nb, uint16_t addr)
 	emdas_buf_nl(emd->dbuf);
 
 	return len;
+}
+
+// -----------------------------------------------------------------------
+void emdas_analyze(struct emdas *emd, int nb, uint16_t addr, int size)
+{
+	emdas_dh_destroy(emd->cellinfo[nb]);
+	emd->cellinfo[nb] = emdas_dh_create();
+
+	int ic = addr;
+	uint16_t *vop, *varg;
+	struct emdas_op *op;
+	int laddr;
+	int ltype;
+
+	while (ic < addr+size) {
+		vop = emd->memget(nb, ic);
+		ic++;
+		if (!vop) {
+			continue;
+		}
+
+		laddr = -1;
+		ltype = EMD_LAB_NONE;
+		op = emd->ops + *vop;
+
+		// D-modification on 2-word norm arg
+		if (FMATCH(op->flags, EMD_FL_2WORD | EMD_FL_MOD_D)) {
+			if (FNMATCH(op->flags, EMD_FL_MOD_B | EMD_FL_MOD_PRE)) {
+				varg = emd->memget(nb, ic);
+				if (varg) {
+					emdas_dh_add(emd->cellinfo[nb], *varg, EMD_LAB_WORD, 0);
+				}
+			}
+		}
+
+		// try setting lab type
+		if (op->flags & EMD_FL_ADDR_JUMP) {
+			ltype = EMD_LAB_JUMP;
+		} else if (op->flags & EMD_FL_ADDR_CALL) {
+			ltype = EMD_LAB_CALL;
+		} else if (op->flags & EMD_FL_ADDR_WORD) {
+			ltype = EMD_LAB_WORD;
+		} else if (op->flags & EMD_FL_ADDR_BYTE) {
+			ltype = EMD_LAB_BYTE;
+		} else if (op->flags & EMD_FL_ADDR_DWORD) {
+			ltype = EMD_LAB_DWORD;
+		} else if (op->flags & EMD_FL_ADDR_FLOAT) {
+			ltype = EMD_LAB_FLOAT;
+		}
+
+		// get destination address
+		if (ltype != EMD_LAB_NONE) {
+			// short, relative
+			if (FMATCH(op->flags, EMD_FL_ARG_RELATIVE | EMD_FL_ARG_SHORT7)) {
+				laddr = ic + _T(*vop);
+			// long, norm-arg, absolute
+			} else if (op->flags & EMD_FL_2WORD) {
+				// no pre- nor B-modification
+				if (FNMATCH(op->flags, EMD_FL_MOD_B | EMD_FL_MOD_PRE)) {
+					varg = emd->memget(nb, ic);
+					if (varg) {
+						// D-modification, we need to go deeper
+						if (op->flags & EMD_FL_MOD_D) {
+							varg = emd->memget(nb, *varg);
+						}
+						if (varg) {
+							laddr = *varg;
+						}
+					}
+				}
+			}
+		}
+
+		// we've found something - add label
+		if (laddr >= 0) {
+			emdas_dh_add(emd->cellinfo[nb], laddr, ltype, 0);
+		}
+
+		// advance IC if 2-word
+		if (op->flags & EMD_FL_2WORD) {
+			ic++;
+		}
+
+		// process 4 additional I/O args
+		if (op->flags & EMD_FL_INS_IO) {
+			ltype = EMD_LAB_IO_NO;
+			for (int i=0 ; i<4 ; i++) {
+				varg = emd->memget(nb, ic);
+				ic++;
+				if (varg) {
+					emdas_dh_add(emd->cellinfo[nb], *varg, ltype, 0);
+				}
+				ltype++;
+			}
+		}
+
+	}
 }
 
 // vim: tabstop=4 shiftwidth=4 autoindent

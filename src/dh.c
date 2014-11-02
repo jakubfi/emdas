@@ -20,15 +20,17 @@
 
 #include "emdas/dh.h"
 
+char *emdas_lab_types[] = { "none", "jmp", "call", "iono", "ioen", "iook", "iope", "byte", "word", "dword", "float" };
+
 // -----------------------------------------------------------------------
-struct emd_dh_table * emd_dh_create()
+struct emdas_dh_table * emdas_dh_create()
 {
-	struct emd_dh_table *dh = malloc(sizeof(struct emd_dh_table));
+	struct emdas_dh_table *dh = malloc(sizeof(struct emdas_dh_table));
 	if (!dh) {
 		return NULL;
 	}
 
-	dh->slots = calloc(EMD_HASH_SIZE, sizeof(struct emd_dh_elem));
+	dh->slots = calloc(EMD_HASH_SIZE, sizeof(struct emdas_dh_elem));
 	if (!dh->slots) {
 		free(dh);
 		return NULL;
@@ -38,13 +40,13 @@ struct emd_dh_table * emd_dh_create()
 }
 
 // -----------------------------------------------------------------------
-#define emd_dh_hash(addr) ((addr) & 0b1111111111)
+#define emdas_dh_hash(addr) ((addr) & 0b1111111111)
 
 // -----------------------------------------------------------------------
-struct emd_dh_elem * emd_dh_get(struct emd_dh_table *dh, uint16_t addr)
+struct emdas_dh_elem * emdas_dh_get(struct emdas_dh_table *dh, uint16_t addr)
 {
-	unsigned hash = emd_dh_hash(addr);
-	struct emd_dh_elem *elem = dh->slots[hash];
+	unsigned hash = emdas_dh_hash(addr);
+	struct emdas_dh_elem *elem = dh->slots[hash];
 
 	while (elem) {
 		if (elem->addr == addr) {
@@ -57,10 +59,10 @@ struct emd_dh_elem * emd_dh_get(struct emd_dh_table *dh, uint16_t addr)
 }
 
 // -----------------------------------------------------------------------
-struct emd_dh_elem * emd_dh_add(struct emd_dh_table *dh, uint16_t addr, short type, unsigned flags)
+struct emdas_dh_elem * emdas_dh_add(struct emdas_dh_table *dh, uint16_t addr, short type, unsigned flags)
 {
-	unsigned hash = emd_dh_hash(addr);
-	struct emd_dh_elem *elem = dh->slots[hash];
+	unsigned hash = emdas_dh_hash(addr);
+	struct emdas_dh_elem *elem = dh->slots[hash];
 
 	while (elem) {
 		if (elem->addr == addr) {
@@ -69,7 +71,7 @@ struct emd_dh_elem * emd_dh_add(struct emd_dh_table *dh, uint16_t addr, short ty
 		elem = elem->next;
 	}
 
-	struct emd_dh_elem *new_elem = malloc(sizeof(struct emd_dh_elem));
+	struct emdas_dh_elem *new_elem = malloc(sizeof(struct emdas_dh_elem));
 	new_elem->addr = addr;
 	new_elem->type = type;
 	new_elem->flags = flags;
@@ -80,11 +82,11 @@ struct emd_dh_elem * emd_dh_add(struct emd_dh_table *dh, uint16_t addr, short ty
 }
 
 // -----------------------------------------------------------------------
-int emd_dh_delete(struct emd_dh_table *dh, uint16_t addr)
+int emdas_dh_delete(struct emdas_dh_table *dh, uint16_t addr)
 {
-	unsigned hash = emd_dh_hash(addr);
-	struct emd_dh_elem *prev = NULL;
-	struct emd_dh_elem *elem = dh->slots[hash];
+	unsigned hash = emdas_dh_hash(addr);
+	struct emdas_dh_elem *prev = NULL;
+	struct emdas_dh_elem *elem = dh->slots[hash];
 
     while (elem) {
         if (elem->addr == addr) {
@@ -103,11 +105,11 @@ int emd_dh_delete(struct emd_dh_table *dh, uint16_t addr)
 }
 
 // -----------------------------------------------------------------------
-void emd_dh_destroy(struct emd_dh_table *dh)
+void emdas_dh_destroy(struct emdas_dh_table *dh)
 {
 	int i;
-	struct emd_dh_elem *elem;
-	struct emd_dh_elem *tmp;
+	struct emdas_dh_elem *elem;
+	struct emdas_dh_elem *tmp;
 
 	if (!dh) return;
 
@@ -125,12 +127,12 @@ void emd_dh_destroy(struct emd_dh_table *dh)
 }
 
 // -----------------------------------------------------------------------
-void emd_dh_dump_stats(struct emd_dh_table *dh)
+void emdas_dh_dump_stats(struct emdas_dh_table *dh)
 {
 	int i;
 	int elem_total = 0, collisions = 0, max_depth = 0;
 
-	struct emd_dh_elem *elem;
+	struct emdas_dh_elem *elem;
 
 	if (!dh) return;
 

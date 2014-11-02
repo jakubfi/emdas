@@ -80,13 +80,16 @@ enum emdas_flags {
 
 	// normarg address flags
 	EMD_FL_ADDR_JUMP	= 1 << 16,	// argument is a jump address
-	EMD_FL_ADDR_BYTE	= 1 << 17,	// argument is a byte address
-	EMD_FL_ADDR_WORD	= 1 << 18,	// argument is a word address
-	EMD_FL_ADDR_DWORD	= 1 << 19,	// argument is a dword address
-	EMD_FL_ADDR_FLOAT	= 1 << 20,	// argument is a float address
+	EMD_FL_ADDR_CALL	= 1 << 17,	// argument is a "call" address
+	EMD_FL_ADDR_BYTE	= 1 << 18,	// argument is a byte address
+	EMD_FL_ADDR_WORD	= 1 << 19,	// argument is a word address
+	EMD_FL_ADDR_DWORD	= 1 << 20,	// argument is a dword address
+	EMD_FL_ADDR_FLOAT	= 1 << 21,	// argument is a float address
 };
 
 #define EMD_FL_ARG2 (EMD_FL_ARG_SHORT4 | EMD_FL_ARG_SHORT7 | EMD_FL_ARG_SHORT8 | EMD_FL_ARG_NORM)
+#define FMATCH(v, flags)  (((v) & (flags)) == (flags))
+#define FNMATCH(v, flags) (((v) & (flags)) == 0)
 
 struct emdas_op {
 	uint8_t id;
