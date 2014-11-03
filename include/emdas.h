@@ -51,11 +51,10 @@ struct emdas {
 
 	unsigned features;
 	struct tabs {
-		int addr;
-		int label;
-		int mnemo;
-		int arg;
-		int alt;
+		unsigned label;
+		unsigned mnemo;
+		unsigned arg;
+		unsigned alt;
 	} tabs;
 
 	struct emdas_dh_table *cellinfo[16];
@@ -66,7 +65,7 @@ void emdas_destroy(struct emdas *emd);
 
 unsigned emdas_get_features(struct emdas *emd);
 int emdas_set_features(struct emdas *emd, unsigned features);
-int emdas_set_tabs(struct emdas *emd, unsigned addr, unsigned label, unsigned mnemo, unsigned arg, unsigned alt);
+int emdas_set_tabs(struct emdas *emd, unsigned label, unsigned mnemo, unsigned arg, unsigned alt);
 char * emdas_get_buf(struct emdas *emd);
 
 int emdas_dasm(struct emdas *emd, int nb, uint16_t addr);

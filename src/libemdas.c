@@ -51,7 +51,7 @@ struct emdas *emdas_create(int iset_type, emdas_getfun getfun)
 
 	emd->memget = getfun;
 	emdas_set_features(emd, EMD_FEAT_ADDR | EMD_FEAT_LABELS | EMD_FEAT_ALTS);
-	emdas_set_tabs(emd, 0, 8, 20, 26, 50);
+	emdas_set_tabs(emd, 8, 20, 26, 50);
 
 	return emd;
 
@@ -94,9 +94,8 @@ int emdas_set_features(struct emdas *emd, unsigned features)
 }
 
 // -----------------------------------------------------------------------
-int emdas_set_tabs(struct emdas *emd, unsigned addr, unsigned label, unsigned mnemo, unsigned arg, unsigned alt)
+int emdas_set_tabs(struct emdas *emd, unsigned label, unsigned mnemo, unsigned arg, unsigned alt)
 {
-	emd->tabs.addr = addr;
 	emd->tabs.label = label;
 	emd->tabs.mnemo = mnemo;
 	emd->tabs.arg = arg;
@@ -285,7 +284,6 @@ static int emdas_print(struct emdas *emd, int nb, uint16_t addr, int as_data)
 
 	// 1. print address
 	if (emd->features & EMD_FEAT_ADDR) {
-		emdas_buf_tab(emd->dbuf, emd->tabs.addr);
 		emdas_buf_i(emd->dbuf, "0x%04x:", addr);
 	}
 
