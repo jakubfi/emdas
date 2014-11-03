@@ -26,6 +26,11 @@
 
 #include "emdas.h"
 
+#define TAB_LABEL 8
+#define TAB_MNEMO 20
+#define TAB_ARG 26
+#define TAB_COMMENT 50
+
 char *input_file;
 char *output_file;
 
@@ -155,6 +160,7 @@ int main(int argc, char **argv)
 		goto cleanup;
 	}
 
+	emdas_set_tabs(emd, TAB_LABEL, TAB_MNEMO, TAB_ARG, TAB_COMMENT);
 	res = emdas_set_features(emd, features);
 	if (res) {
 		printf("Cannot set disassembler features.\n");
@@ -198,6 +204,9 @@ int main(int argc, char **argv)
 		printf("Cannot open output file '%s' for writing.\n", output_file);
 		goto cleanup;
 	}
+
+	// print CPU type
+	fprintf(fo, "%*s.cpu%*s%s\n\n", TAB_MNEMO, "", TAB_ARG-TAB_MNEMO-4, "", iset == EMD_ISET_MX16 ? "mx16" : "mera400");
 
 	// disassemble and write output
 	if (features & EMD_FEAT_LABELS) {
