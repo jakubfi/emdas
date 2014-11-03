@@ -17,6 +17,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <ctype.h>
 
 #include "emdas/buf.h"
@@ -77,6 +78,7 @@ int emdas_buf_c(struct emdas_buf *buf, char c)
 	if (!buf) return 0;
 
 	int clen = 0;
+
 	if (buf->pos < buf->len) {
 		buf->buf[buf->pos] = c;
 		buf->pos++;
@@ -102,40 +104,17 @@ int emdas_buf_nl(struct emdas_buf *buf)
 }
 
 // -----------------------------------------------------------------------
-int emdas_buf_i(struct emdas_buf *buf, const char *fmt, int i)
+int emdas_buf_app(struct emdas_buf *buf, const char *fmt, ...)
 {
 	if (!buf) return 0;
 
-	int clen = snprintf(buf->buf + buf->pos, buf->len - buf->pos, fmt, i);
+	va_list ap;
+	va_start(ap, fmt);
+	int clen = vsnprintf(buf->buf + buf->pos, buf->len - buf->pos, fmt, ap);
+	va_end(ap);
+
 	buf->lpos += clen;
 	buf->pos += clen;
-	buf->buf[buf->pos] = '\0';
-
-	return clen;
-}
-
-// -----------------------------------------------------------------------
-int emdas_buf_s(struct emdas_buf *buf, const char *fmt, char *s)
-{
-	if (!buf) return 0;
-
-	int clen = snprintf(buf->buf + buf->pos, buf->len - buf->pos, fmt, s);
-	buf->lpos += clen;
-	buf->pos += clen;
-	buf->buf[buf->pos] = '\0';
-
-	return clen;
-}
-
-// -----------------------------------------------------------------------
-int emdas_buf_si(struct emdas_buf *buf, const char *fmt, char *s, int i)
-{
-	if (!buf) return 0;
-
-	int clen = snprintf(buf->buf + buf->pos, buf->len - buf->pos, fmt, s, i);
-	buf->lpos += clen;
-	buf->pos += clen;
-	buf->buf[buf->pos] = '\0';
 
 	return clen;
 }
@@ -145,8 +124,8 @@ int emdas_buf_tab(struct emdas_buf *buf, unsigned tab)
 {
 	if (!buf) return 0;
 
-	int clen = 0;
-	int left = 0;
+	int clen;
+	int left;
 	char *ptr = buf->buf + buf->pos;
 	char *maxptr;
 

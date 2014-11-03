@@ -118,7 +118,7 @@ static int emdas_print_flags(struct emdas_buf *buf, uint16_t flags)
 	int fpos = 1;
 
 	if (flags == 0) {
-		return emdas_buf_i(buf, "%i", 0);
+		return emdas_buf_app(buf, "%i", 0);
 	}
 
 	for (int i=15 ; i>=0 ; i--) {
@@ -129,7 +129,7 @@ static int emdas_print_flags(struct emdas_buf *buf, uint16_t flags)
 
 	flagset[fpos] = '\0';
 
-	return emdas_buf_s(buf, "%s", flagset);
+	return emdas_buf_app(buf, "%s", flagset);
 }
 
 // -----------------------------------------------------------------------
@@ -138,9 +138,9 @@ static void emdas_print_arg(struct emdas *emd, struct emdas_op *op, uint16_t *va
 	// .word "argument"
 	if (as_data || (op->id == EMD_OP_NONE)) {
 		if (ref) {
-			emdas_buf_si(emd->dbuf, "%s_%x", emdas_lab_types[ref->type], ref->addr);
+			emdas_buf_app(emd->dbuf, "%s_%x", emdas_lab_types[ref->type], ref->addr);
 		} else {
-			emdas_buf_i(emd->dbuf, "0x%04x", op->v);
+			emdas_buf_app(emd->dbuf, "0x%04x", op->v);
 		}
 		return;
 	}
@@ -149,24 +149,24 @@ static void emdas_print_arg(struct emdas *emd, struct emdas_op *op, uint16_t *va
 	if (op->flags & EMD_FL_ARG_REG) {
 		if (op->flags & EMD_FL_ARG2) {
 			// arguments continue
-			emdas_buf_i(emd->dbuf, "r%i, ", _A(op->v));
+			emdas_buf_app(emd->dbuf, "r%i, ", _A(op->v));
 		} else {
 			// register is the only argument
-			emdas_buf_i(emd->dbuf, "r%i", _A(op->v));
+			emdas_buf_app(emd->dbuf, "r%i", _A(op->v));
 			return;
 		}
 	}
 
 	// short 4-bit argument
 	if (op->flags & EMD_FL_ARG_SHORT4) {
-		emdas_buf_i(emd->dbuf, "%i", _t(op->v));
+		emdas_buf_app(emd->dbuf, "%i", _t(op->v));
 
 	// short 7-bit argument
 	} else if (op->flags & EMD_FL_ARG_SHORT7) {
 		if (ref) {
-			emdas_buf_si(emd->dbuf, "%s_%x", emdas_lab_types[ref->type], ref->addr);
+			emdas_buf_app(emd->dbuf, "%s_%x", emdas_lab_types[ref->type], ref->addr);
 		} else {
-			emdas_buf_i(emd->dbuf, "%i", _T(op->v));
+			emdas_buf_app(emd->dbuf, "%i", _T(op->v));
 		}
 
 	// short 8-bit argument
@@ -178,7 +178,7 @@ static void emdas_print_arg(struct emdas *emd, struct emdas_op *op, uint16_t *va
 			if (op->id == EMD_OP_BLC) arg <<= 8;
 			emdas_print_flags(emd->dbuf, arg);
 		} else {
-			emdas_buf_i(emd->dbuf, "%d", arg);
+			emdas_buf_app(emd->dbuf, "%d", arg);
 		}
 
 	// normal argument
@@ -189,29 +189,29 @@ static void emdas_print_arg(struct emdas *emd, struct emdas_op *op, uint16_t *va
 		if (op->flags & EMD_FL_2WORD) {
 			// no memory or split arg
 			if (!varg) {
-				emdas_buf_s(emd->dbuf, "%s", "r0");
+				emdas_buf_app(emd->dbuf, "%s", "r0");
 			// named argument
 			} else if (ref) {
-				emdas_buf_si(emd->dbuf, "%s_%x", emdas_lab_types[ref->type], ref->addr);
+				emdas_buf_app(emd->dbuf, "%s_%x", emdas_lab_types[ref->type], ref->addr);
 			// arg refers to CPU flags
 			} else if (op->flags & EMD_FL_ARG_FLAGS) {
 				emdas_print_flags(emd->dbuf, *varg);
 			// print small integers as decimal
 			} else if (*varg < 16) {
-				emdas_buf_i(emd->dbuf, "%i", *varg);
+				emdas_buf_app(emd->dbuf, "%i", *varg);
 			// hex constant
 			} else {
-				emdas_buf_i(emd->dbuf, "0x%04x", *varg);
+				emdas_buf_app(emd->dbuf, "0x%04x", *varg);
 			}
 
 		// rC
 		} else {
-			emdas_buf_i(emd->dbuf, "r%d", _C(op->v));
+			emdas_buf_app(emd->dbuf, "r%d", _C(op->v));
 		}
 
 		// rB
 		if (op->flags & EMD_FL_MOD_B) {
-			emdas_buf_i(emd->dbuf, "+r%d", _B(op->v));
+			emdas_buf_app(emd->dbuf, "+r%d", _B(op->v));
 		}
 
 		if (op->flags & EMD_FL_MOD_D) emdas_buf_c(emd->dbuf, ']');
@@ -223,7 +223,7 @@ static void emdas_print_op(struct emdas *emd, struct emdas_op *op, int as_data)
 {
 	int op_id = as_data ? EMD_OP_NONE : op->id;
 
-	int clen = emdas_buf_s(emd->dbuf, "%s", emdas_iset_mnemo[op_id]);
+	int clen = emdas_buf_app(emd->dbuf, "%s", emdas_iset_mnemo[op_id]);
 	if (emd->features & EMD_FEAT_LMNEMO) {
 		emdas_buf_tolower(emd->dbuf, clen);
 	}
@@ -234,29 +234,29 @@ static void emdas_print_comment(struct emdas *emd, struct emdas_op *op, uint16_t
 {
 	// cell was printed as data, so alt is code
 	if (as_data) {
-		emdas_buf_s(emd->dbuf, "%s", "; ");
+		emdas_buf_app(emd->dbuf, "%s", "; ");
 		emdas_print_op(emd, op, 0);
 		emdas_buf_c(emd->dbuf, ' ');
 		emdas_print_arg(emd, op, NULL, NULL, 0);
 	// cell was printed as code, alt is data
 	} else {
 		// first word is always data then
-		emdas_buf_i(emd->dbuf, "; .word 0x%04x", op->v);
+		emdas_buf_app(emd->dbuf, "; .word 0x%04x", op->v);
 		// if op is 2-word
 		if (op->flags & EMD_FL_2WORD) {
 			if (varg) {
 				struct emdas_op *aop = emd->ops + *varg;
 				if (aop->id != EMD_OP_NONE) {
-					emdas_buf_s(emd->dbuf, "%s", "  ");
+					emdas_buf_app(emd->dbuf, "%s", "  ");
 					emdas_print_op(emd, aop, 0);
 					emdas_buf_c(emd->dbuf, ' ');
 					emdas_print_arg(emd, aop, NULL, NULL, 0);
 				} else {
-					emdas_buf_i(emd->dbuf, ", 0x%04x", aop->v);
+					emdas_buf_app(emd->dbuf, ", 0x%04x", aop->v);
 				}
 			} else {
 				// cannot read memory
-				emdas_buf_s(emd->dbuf, ", %s", "???");
+				emdas_buf_app(emd->dbuf, ", %s", "???");
 			}
 		}
 	}
@@ -268,7 +268,7 @@ static void emdas_print_label(struct emdas *emd, int nb, uint16_t addr)
 	struct emdas_dh_elem *lab = emdas_dh_get(emd->cellinfo[nb], addr);
 	if (lab && (lab->type != EMD_LAB_NONE)) {
 		emdas_buf_tab(emd->dbuf, emd->tabs.label);
-		emdas_buf_si(emd->dbuf, "%s_%x:", emdas_lab_types[lab->type], lab->addr);
+		emdas_buf_app(emd->dbuf, "%s_%x:", emdas_lab_types[lab->type], lab->addr);
 	}
 }
 
@@ -284,7 +284,7 @@ static int emdas_print(struct emdas *emd, int nb, uint16_t addr, int as_data)
 
 	// 1. print address
 	if (emd->features & EMD_FEAT_ADDR) {
-		emdas_buf_i(emd->dbuf, "0x%04x:", addr);
+		emdas_buf_app(emd->dbuf, "0x%04x:", addr);
 	}
 
 	// 2. print label
@@ -300,7 +300,7 @@ static int emdas_print(struct emdas *emd, int nb, uint16_t addr, int as_data)
 		op = emd->ops + *vop;
 	} else {
 		// no memory
-		emdas_buf_s(emd->dbuf, "%s", "???");
+		emdas_buf_app(emd->dbuf, "%s", "???");
 		return len;
 	}
 
