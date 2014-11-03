@@ -141,25 +141,31 @@ int emdas_buf_si(struct emdas_buf *buf, const char *fmt, char *s, int i)
 }
 
 // -----------------------------------------------------------------------
-int emdas_buf_tab(struct emdas_buf *buf, int tab)
+int emdas_buf_tab(struct emdas_buf *buf, unsigned tab)
 {
 	if (!buf) return 0;
 
 	int clen = 0;
-	int dtab = tab;
+	char *ptr = buf->buf + buf->pos;
+	char *maxptr;
 
-	// if desired tab position is lower than current line position
-	// (but not in a first column) make sure to insert one space
-	if ((buf->lpos != 0) && (dtab <= buf->lpos)) {
-		dtab = buf->lpos + 1;
+	if (tab <= buf->lpos) {
+		if (buf->lpos != 0) {
+			maxptr = ptr + 1;
+		} else {
+			return 0;
+		}
+	} else {
+		maxptr = ptr - buf->lpos + tab;
 	}
 
-	while ((buf->pos < buf->len) && (buf->lpos < dtab)) {
-		buf->buf[buf->pos] = ' ';
-		buf->pos++;
-		buf->lpos++;
-		clen++;
+	while (ptr < maxptr) {
+		*ptr++ = ' ';
 	}
+
+	clen = ptr - buf->buf - buf->pos;
+	buf->pos += clen;
+	buf->lpos += clen;
 
 	return clen;
 }
