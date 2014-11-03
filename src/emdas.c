@@ -45,7 +45,7 @@ int bin_size;
 // -----------------------------------------------------------------------
 void version()
 {
-	printf("EMDAS v%s - MERA 400 dissassembler\n", EMDAS_VERSION);
+	printf("EMDAS v%s - MERA-400 dissassembler\n", EMDAS_VERSION);
 }
 
 // -----------------------------------------------------------------------
@@ -55,13 +55,13 @@ void usage()
 	printf(
 		"Usage: emdas [options] input\n"
 		"Where options are one or more of:\n"
-		"   -x          : use extended MX-16 instruction set\n"
-		"   -l          : use lowercase mnemonics\n"
 		"   -o <output> : specify output file (stdout otherwise)\n"
-		"   -na         : do not include adresses in asm output\n"
-		"   -nc         : do not include comments with alternatives in asm output\n"
-		"   -nl         : do not assign labels\n"
+		"   -c <cpu>    : set CPU type: mera400, mx16 (default is mera400)\n"
 		"   -a <addr>   : set base address\n"
+		"   -l          : use lowercase mnemonics\n"
+		"   -na         : do not print adresses\n"
+		"   -nc         : do not print alternatives in comments\n"
+		"   -nl         : do not assign labels\n"
 		"   -v          : print version and exit\n"
 		"   -h          : print help and exit\n"
 	);
@@ -73,10 +73,17 @@ int parse_args(int argc, char **argv)
 	char *oa;
 	int option;
 
-	while ((option = getopt(argc, argv,"xlo:n:a:vh")) != -1) {
+	while ((option = getopt(argc, argv,"c:lo:n:a:vh")) != -1) {
 		switch (option) {
-			case 'x':
-				iset = EMD_ISET_MX16;
+			case 'c':
+				if (!strcmp(optarg, "mera400")) {
+					iset = EMD_ISET_MERA400;
+				} else if (!strcmp(optarg, "mx16")) {
+					iset = EMD_ISET_MX16;
+				} else {
+					fprintf(stderr, "Unknown CPU type: '%s'\n", optarg);
+					return -1;
+				}
 				break;
 			case 'l':
 				features |= EMD_FEAT_LMNEMO;
