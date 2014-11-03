@@ -146,26 +146,41 @@ int emdas_buf_tab(struct emdas_buf *buf, unsigned tab)
 	if (!buf) return 0;
 
 	int clen = 0;
+	int left = 0;
 	char *ptr = buf->buf + buf->pos;
 	char *maxptr;
 
+	// tab position already behind
 	if (tab <= buf->lpos) {
+		// we're not at the beginning of a line
 		if (buf->lpos != 0) {
 			maxptr = ptr + 1;
+		// we're at the beginning of a line
 		} else {
 			return 0;
 		}
+	// tab position ahead
 	} else {
 		maxptr = ptr - buf->lpos + tab;
 	}
 
-	while (ptr < maxptr) {
+	// want
+	left = maxptr - ptr;
+	// if greater than buf left
+	if (left > (buf->len - buf->pos)) {
+		left = buf->len - buf->pos;
+	}
+
+	// fill
+	while (left) {
 		*ptr++ = ' ';
+		left--;
 	}
 
 	clen = ptr - buf->buf - buf->pos;
 	buf->pos += clen;
 	buf->lpos += clen;
+	buf->buf[buf->pos] = '\0';
 
 	return clen;
 }
