@@ -50,8 +50,8 @@ struct emdas *emdas_create(int iset_type, emdas_getfun getfun)
 	}
 
 	emd->memget = getfun;
-	emdas_set_features(emd, EMD_FEAT_ADDR | EMD_FEAT_ALTS);
-	emdas_set_tabs(emd, 8, 20, 26, 50);
+	emdas_set_features(emd, EMD_FEAT_DEFAULTS);
+	emdas_set_tabs(emd, EMD_TAB_LABEL, EMD_TAB_MNEMO, EMD_TAB_ARG, EMD_TAB_ALT);
 
 	return emd;
 

@@ -34,6 +34,12 @@ enum emdas_features {
 };
 
 #define EMD_FEAT_ALL (EMD_FEAT_ADDR | EMD_FEAT_LMNEMO | EMD_FEAT_ALTS)
+#define EMD_FEAT_DEFAULTS (EMD_FEAT_ADDR | EMD_FEAT_ALTS)
+
+#define EMD_TAB_LABEL 8
+#define EMD_TAB_MNEMO 20
+#define EMD_TAB_ARG 26
+#define EMD_TAB_ALT 50
 
 // getter function
 
