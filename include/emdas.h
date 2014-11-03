@@ -29,12 +29,11 @@
 enum emdas_features {
 	EMD_FEAT_NONE		= 0,
 	EMD_FEAT_ADDR		= 1 << 0,	// print addresses
-	EMD_FEAT_LABELS		= 1 << 1,	// use labels
-	EMD_FEAT_LMNEMO		= 1 << 2,	// lowercase mnemonics
-	EMD_FEAT_ALTS		= 1 << 3,	// print alternatives in comments
+	EMD_FEAT_LMNEMO		= 1 << 1,	// lowercase mnemonics
+	EMD_FEAT_ALTS		= 1 << 2,	// print alternatives in comments
 };
 
-#define EMD_FEAT_ALL (EMD_FEAT_ADDR | EMD_FEAT_LABELS | EMD_FEAT_LMNEMO | EMD_FEAT_ALTS)
+#define EMD_FEAT_ALL (EMD_FEAT_ADDR | EMD_FEAT_LMNEMO | EMD_FEAT_ALTS)
 
 // getter function
 

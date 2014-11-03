@@ -36,6 +36,7 @@ char *output_file;
 
 int iset = EMD_ISET_MERA400;
 int features = EMD_FEAT_ALL & ~EMD_FEAT_LMNEMO;
+int use_labels = 1;
 int base_addr;
 
 uint16_t *mem;
@@ -79,7 +80,7 @@ int parse_args(int argc, char **argv)
 					switch (*oa) {
 						case 'a': features &= ~EMD_FEAT_ADDR; break;
 						case 'c': features &= ~EMD_FEAT_ALTS; break;
-						case 'l': features &= ~EMD_FEAT_LABELS; break;
+						case 'l': use_labels = 0; break;
 						default: 
 							fprintf(stderr, "Unknown parameter for -n: '%c'\n", *oa);
 							return -1;
@@ -209,7 +210,7 @@ int main(int argc, char **argv)
 	fprintf(fo, "%*s.cpu%*s%s\n\n", TAB_MNEMO, "", TAB_ARG-TAB_MNEMO-4, "", iset == EMD_ISET_MX16 ? "mx16" : "mera400");
 
 	// disassemble and write output
-	if (features & EMD_FEAT_LABELS) {
+	if (use_labels) {
 		emdas_analyze(emd, 0, base_addr, bin_size);
 	}
 

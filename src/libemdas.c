@@ -50,7 +50,7 @@ struct emdas *emdas_create(int iset_type, emdas_getfun getfun)
 	}
 
 	emd->memget = getfun;
-	emdas_set_features(emd, EMD_FEAT_ADDR | EMD_FEAT_LABELS | EMD_FEAT_ALTS);
+	emdas_set_features(emd, EMD_FEAT_ADDR | EMD_FEAT_ALTS);
 	emdas_set_tabs(emd, 8, 20, 26, 50);
 
 	return emd;
@@ -288,9 +288,7 @@ static int emdas_print(struct emdas *emd, int nb, uint16_t addr, int as_data)
 	}
 
 	// 2. print label
-	if (emd->features & EMD_FEAT_LABELS) {
-		emdas_print_label(emd, nb, addr);
-	}
+	emdas_print_label(emd, nb, addr);
 
 	emdas_buf_tab(emd->dbuf, emd->tabs.mnemo);
 
