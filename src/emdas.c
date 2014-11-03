@@ -43,8 +43,15 @@ uint16_t *mem;
 int bin_size;
 
 // -----------------------------------------------------------------------
+void version()
+{
+	printf("EMDAS v%s - MERA 400 dissassembler\n", EMDAS_VERSION);
+}
+
+// -----------------------------------------------------------------------
 void usage()
 {
+	version();
 	printf(
 		"Usage: emdas [options] input\n"
 		"Where options are one or more of:\n"
@@ -93,7 +100,7 @@ int parse_args(int argc, char **argv)
 				exit(0);
 				break;
 			case 'v':
-				printf("EMDAS v%s - MERA 400 dissassembler\n", EMDAS_VERSION);
+				version();
 				exit(0);
 				break;
 			case 'o':
