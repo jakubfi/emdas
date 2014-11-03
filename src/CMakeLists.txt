@@ -17,10 +17,19 @@ install(TARGETS emdas-lib
 	PUBLIC_HEADER DESTINATION include
 )
 
+install(FILES
+	../include/emdas/iset.h
+	../include/emdas/buf.h
+	../include/emdas/dh.h
+	DESTINATION include/emdas
+)
+
 add_executable(emdas
 	emdas.c
 )
 
 target_link_libraries(emdas emdas-lib emelf)
+
+install(TARGETS emdas RUNTIME DESTINATION bin)
 
 # vim: tabstop=4
