@@ -42,6 +42,7 @@ struct emdas_buf * emdas_buf_create(int len)
 	}
 
 	buf->len = len;
+	buf->nl = '\n';
 	emdas_buf_reset(buf);
 
 	return buf;
@@ -68,11 +69,21 @@ int emdas_buf_reset(struct emdas_buf *buf)
 	buf->pos = 0;
 	buf->lpos = 0;
 	buf->buf[0] = '\0';
+	buf->lines = 0;
 
 	return 0;
 }
 
 // -----------------------------------------------------------------------
+int emdas_buf_set_nl(struct emdas_buf *buf, char nl)
+{
+	if (!buf) return -1;
+	buf->nl = nl;
+	return 0;
+}
+
+// -----------------------------------------------------------------------
+
 int emdas_buf_c(struct emdas_buf *buf, char c)
 {
 	if (!buf) return 0;
@@ -95,9 +106,10 @@ int emdas_buf_nl(struct emdas_buf *buf)
 {
 	if (!buf) return 0;
 
-	int clen = emdas_buf_c(buf, '\n');
+	int clen = emdas_buf_c(buf, buf->nl);
 	if (clen != 0) {
 		buf->lpos = 0;
+		buf->lines++;
 	}
 
 	return clen;

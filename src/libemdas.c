@@ -94,6 +94,12 @@ int emdas_set_features(struct emdas *emd, unsigned features)
 }
 
 // -----------------------------------------------------------------------
+void emdas_set_nl(struct emdas *emd, char c)
+{
+	emdas_buf_set_nl(emd->dbuf, c);
+}
+
+// -----------------------------------------------------------------------
 int emdas_set_tabs(struct emdas *emd, unsigned label, unsigned mnemo, unsigned arg, unsigned alt)
 {
 	emd->tabs.label = label;
@@ -108,6 +114,12 @@ int emdas_set_tabs(struct emdas *emd, unsigned label, unsigned mnemo, unsigned a
 char * emdas_get_buf(struct emdas *emd)
 {
 	return emd->dbuf->buf;
+}
+
+// -----------------------------------------------------------------------
+int emdas_get_linecnt(struct emdas *emd)
+{
+	return emd->dbuf->lines;
 }
 
 // -----------------------------------------------------------------------

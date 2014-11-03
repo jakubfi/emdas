@@ -71,7 +71,10 @@ void emdas_destroy(struct emdas *emd);
 unsigned emdas_get_features(struct emdas *emd);
 int emdas_set_features(struct emdas *emd, unsigned features);
 int emdas_set_tabs(struct emdas *emd, unsigned label, unsigned mnemo, unsigned arg, unsigned alt);
+void emdas_set_nl(struct emdas *emd, char c);
+
 char * emdas_get_buf(struct emdas *emd);
+int emdas_get_linecnt(struct emdas *emd);
 
 int emdas_dasm(struct emdas *emd, int nb, uint16_t addr);
 void emdas_analyze(struct emdas *emd, int nb, uint16_t addr, int size);

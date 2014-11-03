@@ -23,12 +23,15 @@ struct emdas_buf {
 	int len;
 	int pos;
 	int lpos;
+	int lines;
+	char nl;
 };
 
 struct emdas_buf * emdas_buf_create(int len);
 void emdas_buf_destroy(struct emdas_buf *buf);
 
 int emdas_buf_reset(struct emdas_buf *buf);
+int emdas_buf_set_nl(struct emdas_buf *buf, char nl);
 
 int emdas_buf_nl(struct emdas_buf *buf);
 int emdas_buf_app(struct emdas_buf *buf, const char *fmt, ...);
