@@ -85,6 +85,7 @@ enum emdas_flags {
 	EMD_FL_ADDR_WORD	= 1 << 19,	// argument is a word address
 	EMD_FL_ADDR_DWORD	= 1 << 20,	// argument is a dword address
 	EMD_FL_ADDR_FLOAT	= 1 << 21,	// argument is a float address
+	EMD_FL_ADDR_WORD7	= 1 << 22,	// argument is a a 7-word
 };
 
 #define EMD_FL_ARG2 (EMD_FL_ARG_SHORT4 | EMD_FL_ARG_SHORT7 | EMD_FL_ARG_SHORT8 | EMD_FL_ARG_NORM)

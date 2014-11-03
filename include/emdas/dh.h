@@ -34,6 +34,7 @@ enum emdas_lab_types {
 	EMD_LAB_WORD,
 	EMD_LAB_DWORD,
 	EMD_LAB_FLOAT,
+	EMD_LAB_WORD7,
 };
 
 extern char *emdas_lab_types[];
@@ -41,7 +42,7 @@ extern char *emdas_lab_types[];
 struct emdas_dh_elem {
 	uint16_t addr;
 	short type;
-	unsigned flags;
+	struct emdas_dh_elem *ref;
 	struct emdas_dh_elem *next;
 };
 
@@ -52,7 +53,7 @@ struct emdas_dh_table {
 struct emdas_dh_table * emdas_dh_create();
 unsigned emdas_dh_hash(struct emdas_dh_table *dh, uint16_t addr);
 struct emdas_dh_elem * emdas_dh_get(struct emdas_dh_table *dh, uint16_t addr);
-struct emdas_dh_elem * emdas_dh_add(struct emdas_dh_table *dh, uint16_t addr, short type, unsigned flags);
+struct emdas_dh_elem * emdas_dh_add(struct emdas_dh_table *dh, uint16_t addr, short type, struct emdas_dh_elem *ref);
 int emdas_dh_delete(struct emdas_dh_table *dh, uint16_t addr);
 void emdas_dh_destroy(struct emdas_dh_table *dh);
 

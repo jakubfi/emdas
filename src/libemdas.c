@@ -51,7 +51,7 @@ struct emdas *emdas_create(int iset_type, emdas_getfun getfun)
 
 	emd->memget = getfun;
 	emdas_set_features(emd, EMD_FEAT_ADDR | EMD_FEAT_LABELS | EMD_FEAT_ALTS);
-	emdas_set_tabs(emd, 0, 10, 20, 26, 50);
+	emdas_set_tabs(emd, 0, 8, 20, 26, 50);
 
 	return emd;
 
@@ -134,11 +134,15 @@ static int emdas_print_flags(struct emdas_buf *buf, uint16_t flags)
 }
 
 // -----------------------------------------------------------------------
-static void emdas_print_arg(struct emdas *emd, struct emdas_op *op, uint16_t *varg, int as_data)
+static void emdas_print_arg(struct emdas *emd, struct emdas_op *op, uint16_t *varg, struct emdas_dh_elem *ref, int as_data)
 {
 	// .word "argument"
 	if (as_data || (op->id == EMD_OP_NONE)) {
-		emdas_buf_i(emd->dbuf, "0x%04x", op->v);
+		if (ref) {
+			emdas_buf_si(emd->dbuf, "%s_%x", emdas_lab_types[ref->type], ref->addr);
+		} else {
+			emdas_buf_i(emd->dbuf, "0x%04x", op->v);
+		}
 		return;
 	}
 
@@ -160,7 +164,11 @@ static void emdas_print_arg(struct emdas *emd, struct emdas_op *op, uint16_t *va
 
 	// short 7-bit argument
 	} else if (op->flags & EMD_FL_ARG_SHORT7) {
-		emdas_buf_i(emd->dbuf, "%i", _T(op->v));
+		if (ref) {
+			emdas_buf_si(emd->dbuf, "%s_%x", emdas_lab_types[ref->type], ref->addr);
+		} else {
+			emdas_buf_i(emd->dbuf, "%i", _T(op->v));
+		}
 
 	// short 8-bit argument
 	} else if (op->flags & EMD_FL_ARG_SHORT8) {
@@ -180,20 +188,21 @@ static void emdas_print_arg(struct emdas *emd, struct emdas_op *op, uint16_t *va
 
 		// 2nd arg
 		if (op->flags & EMD_FL_2WORD) {
-			// no memory
+			// no memory or split arg
 			if (!varg) {
 				emdas_buf_s(emd->dbuf, "%s", "r0");
+			// named argument
+			} else if (ref) {
+				emdas_buf_si(emd->dbuf, "%s_%x", emdas_lab_types[ref->type], ref->addr);
+			// arg refers to CPU flags
+			} else if (op->flags & EMD_FL_ARG_FLAGS) {
+				emdas_print_flags(emd->dbuf, *varg);
 			// print small integers as decimal
 			} else if (*varg < 16) {
 				emdas_buf_i(emd->dbuf, "%i", *varg);
+			// hex constant
 			} else {
-				// arg refers to CPU flags
-				if (op->flags & EMD_FL_ARG_FLAGS) {
-					emdas_print_flags(emd->dbuf, *varg);
-				// hex constant
-				} else {
-					emdas_buf_i(emd->dbuf, "0x%04x", *varg);
-				}
+				emdas_buf_i(emd->dbuf, "0x%04x", *varg);
 			}
 
 		// rC
@@ -224,12 +233,12 @@ static void emdas_print_op(struct emdas *emd, struct emdas_op *op, int as_data)
 // -----------------------------------------------------------------------
 static void emdas_print_comment(struct emdas *emd, struct emdas_op *op, uint16_t *varg, int as_data)
 {
-	// cell was printed as data, alt is code
+	// cell was printed as data, so alt is code
 	if (as_data) {
 		emdas_buf_s(emd->dbuf, "%s", "; ");
 		emdas_print_op(emd, op, 0);
 		emdas_buf_c(emd->dbuf, ' ');
-		emdas_print_arg(emd, op, NULL, 0);
+		emdas_print_arg(emd, op, NULL, NULL, 0);
 	// cell was printed as code, alt is data
 	} else {
 		// first word is always data then
@@ -242,7 +251,7 @@ static void emdas_print_comment(struct emdas *emd, struct emdas_op *op, uint16_t
 					emdas_buf_s(emd->dbuf, "%s", "  ");
 					emdas_print_op(emd, aop, 0);
 					emdas_buf_c(emd->dbuf, ' ');
-					emdas_print_arg(emd, aop, NULL, 0);
+					emdas_print_arg(emd, aop, NULL, NULL, 0);
 				} else {
 					emdas_buf_i(emd->dbuf, ", 0x%04x", aop->v);
 				}
@@ -258,7 +267,7 @@ static void emdas_print_comment(struct emdas *emd, struct emdas_op *op, uint16_t
 static void emdas_print_label(struct emdas *emd, int nb, uint16_t addr)
 {
 	struct emdas_dh_elem *lab = emdas_dh_get(emd->cellinfo[nb], addr);
-	if (lab) {
+	if (lab && (lab->type != EMD_LAB_NONE)) {
 		emdas_buf_tab(emd->dbuf, emd->tabs.label);
 		emdas_buf_si(emd->dbuf, "%s_%x:", emdas_lab_types[lab->type], lab->addr);
 	}
@@ -271,6 +280,8 @@ static int emdas_print(struct emdas *emd, int nb, uint16_t addr, int as_data)
 	struct emdas_op *op;
 	uint16_t *vop;
 	uint16_t *varg = NULL;
+	struct emdas_dh_elem *ref = NULL;
+	int split_arg = 0;
 
 	// 1. print address
 	if (emd->features & EMD_FEAT_ADDR) {
@@ -295,25 +306,48 @@ static int emdas_print(struct emdas *emd, int nb, uint16_t addr, int as_data)
 		return len;
 	}
 
-	// 3. print opcode
+	// 3. print mnemonic
 	emdas_print_op(emd, op, as_data);
 
 	// get 2nd arg if necessary
 	if (!as_data && (op->flags & EMD_FL_2WORD)) {
-		varg = emd->memget(nb, addr+1);
-		len++;
+
+		ref = emdas_dh_get(emd->cellinfo[nb], addr+1);
+
+		// is there a label on arg? (split op/arg)
+		if (ref && ref->type != EMD_LAB_NONE) {
+			split_arg = 1;
+		// we want 2nd arg only if there is no label on argument (split op/arg)
+		} else {
+			varg = emd->memget(nb, addr+1);
+			len++;
+		}
+	// get current word as ref otherwise
+	} else {
+		ref = emdas_dh_get(emd->cellinfo[nb], addr);
+	}
+
+	// get referenced cell (for named argument)
+	if (ref) {
+		ref = ref->ref;
 	}
 
 	// 4. print argument(-s)
 	if (as_data || !(op->flags & EMD_FL_ARG_NONE)) {
 		emdas_buf_tab(emd->dbuf, emd->tabs.arg);
-		emdas_print_arg(emd, op, varg, as_data);
+		emdas_print_arg(emd, op, varg, ref, as_data);
 	}
 
 	// 5. print comment with alternatives
 	if ((emd->features & EMD_FEAT_ALTS) && (op->id != EMD_OP_NONE)) {
 		emdas_buf_tab(emd->dbuf, emd->tabs.alt);
 		emdas_print_comment(emd, op, varg, as_data);
+	}
+
+	// handle split arg
+	if (split_arg) {
+		emdas_buf_nl(emd->dbuf);
+		len += emdas_print(emd, nb, addr+1, 1);
 	}
 
 	// handle additional IN/OU "arguments"
@@ -346,6 +380,7 @@ int emdas_dasm(struct emdas *emd, int nb, uint16_t addr)
 // -----------------------------------------------------------------------
 void emdas_analyze(struct emdas *emd, int nb, uint16_t addr, int size)
 {
+	// redo hash, old one is useless
 	emdas_dh_destroy(emd->cellinfo[nb]);
 	emd->cellinfo[nb] = emdas_dh_create();
 
@@ -354,29 +389,41 @@ void emdas_analyze(struct emdas *emd, int nb, uint16_t addr, int size)
 	struct emdas_op *op;
 	int laddr;
 	int ltype;
+	struct emdas_dh_elem *ref;
+	int ref_ic;
 
 	while (ic < addr+size) {
+
+		// get instruction at IC
 		vop = emd->memget(nb, ic);
-		ic++;
 		if (!vop) {
+			ic++;
 			continue;
 		}
+		op = emd->ops + *vop;
 
 		laddr = -1;
 		ltype = EMD_LAB_NONE;
-		op = emd->ops + *vop;
 
-		// D-modification on 2-word norm arg
+		// First, check for D-modification on 2-word norm arg.
+		// Doesn't matter if effective argument is an address - in such cases we put label only on address that is
+		// a direct result of D-modification, effective argument is considered a variable and not analyzed for labels.
+		// This is also due to the fact that this may cause cell wanting to reference more than one cell, e.g.:
+		//  * PF argument is [X], we put label X at the destination (X is constant)
+		//  * at [X] we have value Y, which is a float address (Y is variable)
+		//  * it may happen, that value Y also resolves as opcode that references another cell
 		if (FMATCH(op->flags, EMD_FL_2WORD | EMD_FL_MOD_D)) {
 			if (FNMATCH(op->flags, EMD_FL_MOD_B | EMD_FL_MOD_PRE)) {
-				varg = emd->memget(nb, ic);
-				if (varg) {
-					emdas_dh_add(emd->cellinfo[nb], *varg, EMD_LAB_WORD, 0);
+				ref_ic = ic+1;
+				varg = emd->memget(nb, ref_ic);
+				if (varg && (*varg >= addr) && (*varg < addr+size)) {
+					ref = emdas_dh_add(emd->cellinfo[nb], *varg, EMD_LAB_WORD, NULL);
+					emdas_dh_add(emd->cellinfo[nb], ref_ic, EMD_LAB_NONE, ref);
 				}
 			}
 		}
 
-		// try setting lab type
+		// Check for effective arguments that are addresses
 		if (op->flags & EMD_FL_ADDR_JUMP) {
 			ltype = EMD_LAB_JUMP;
 		} else if (op->flags & EMD_FL_ADDR_CALL) {
@@ -389,54 +436,53 @@ void emdas_analyze(struct emdas *emd, int nb, uint16_t addr, int size)
 			ltype = EMD_LAB_DWORD;
 		} else if (op->flags & EMD_FL_ADDR_FLOAT) {
 			ltype = EMD_LAB_FLOAT;
+		} else if (op->flags & EMD_FL_ADDR_WORD7) {
+			ltype = EMD_LAB_WORD7;
 		}
 
-		// get destination address
+		// Effective argument is an address...
 		if (ltype != EMD_LAB_NONE) {
-			// short, relative
+			// ...short, relative
 			if (FMATCH(op->flags, EMD_FL_ARG_RELATIVE | EMD_FL_ARG_SHORT7)) {
-				laddr = ic + _T(*vop);
-			// long, norm-arg, absolute
+				ref_ic = ic;
+				laddr = (uint16_t) (ref_ic + 1 + _T(*vop));
+			// ...long, norm-arg, absolute
 			} else if (op->flags & EMD_FL_2WORD) {
-				// no pre- nor B-modification
-				if (FNMATCH(op->flags, EMD_FL_MOD_B | EMD_FL_MOD_PRE)) {
-					varg = emd->memget(nb, ic);
+				// Make sure there is no pre- nor B-modification.
+				// also, D-modified arguments have been handled earlier
+				if (FNMATCH(op->flags, EMD_FL_MOD_D | EMD_FL_MOD_B | EMD_FL_MOD_PRE)) {
+					ref_ic = ic+1;
+					varg = emd->memget(nb, ref_ic);
 					if (varg) {
-						// D-modification, we need to go deeper
-						if (op->flags & EMD_FL_MOD_D) {
-							varg = emd->memget(nb, *varg);
-						}
-						if (varg) {
-							laddr = *varg;
-						}
+						laddr = *varg;
 					}
 				}
 			}
 		}
 
 		// we've found something - add label
-		if (laddr >= 0) {
-			emdas_dh_add(emd->cellinfo[nb], laddr, ltype, 0);
+		if ((laddr >= 0) && (laddr >= addr) && (laddr < addr+size)) {
+			ref = emdas_dh_add(emd->cellinfo[nb], laddr, ltype, NULL);
+			emdas_dh_add(emd->cellinfo[nb], ref_ic, EMD_LAB_NONE, ref);
 		}
 
-		// advance IC if 2-word
-		if (op->flags & EMD_FL_2WORD) {
-			ic++;
-		}
+		// advance IC
+		ic++;
+		if (op->flags & EMD_FL_2WORD) ic++;
 
 		// process 4 additional I/O args
 		if (op->flags & EMD_FL_INS_IO) {
 			ltype = EMD_LAB_IO_NO;
 			for (int i=0 ; i<4 ; i++) {
 				varg = emd->memget(nb, ic);
-				ic++;
-				if (varg) {
-					emdas_dh_add(emd->cellinfo[nb], *varg, ltype, 0);
+				if (varg && (*varg >= addr) && (*varg < addr+size)) {
+					ref = emdas_dh_add(emd->cellinfo[nb], *varg, ltype, NULL);
+					emdas_dh_add(emd->cellinfo[nb], ic, EMD_LAB_NONE, ref);
 				}
+				ic++;
 				ltype++;
 			}
 		}
-
 	}
 }
 

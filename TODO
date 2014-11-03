@@ -1,2 +1,5 @@
-finish scanning analyzers early when -nr is specified
+errors.h
+install all headers
+emdas-level tabs
+print cpu type
 

@@ -20,7 +20,7 @@
 
 #include "emdas/dh.h"
 
-char *emdas_lab_types[] = { "none", "jmp", "call", "iono", "ioen", "iook", "iope", "byte", "word", "dword", "float" };
+char *emdas_lab_types[] = { "none", "jmp", "call", "iono", "ioen", "iook", "iope", "byte", "word", "dword", "float", "word7" };
 
 // -----------------------------------------------------------------------
 struct emdas_dh_table * emdas_dh_create()
@@ -45,6 +45,8 @@ struct emdas_dh_table * emdas_dh_create()
 // -----------------------------------------------------------------------
 struct emdas_dh_elem * emdas_dh_get(struct emdas_dh_table *dh, uint16_t addr)
 {
+	if (!dh) return NULL;
+
 	unsigned hash = emdas_dh_hash(addr);
 	struct emdas_dh_elem *elem = dh->slots[hash];
 
@@ -59,13 +61,20 @@ struct emdas_dh_elem * emdas_dh_get(struct emdas_dh_table *dh, uint16_t addr)
 }
 
 // -----------------------------------------------------------------------
-struct emdas_dh_elem * emdas_dh_add(struct emdas_dh_table *dh, uint16_t addr, short type, unsigned flags)
+struct emdas_dh_elem * emdas_dh_add(struct emdas_dh_table *dh, uint16_t addr, short type, struct emdas_dh_elem *ref)
 {
+	if (!dh) return NULL;
+
 	unsigned hash = emdas_dh_hash(addr);
 	struct emdas_dh_elem *elem = dh->slots[hash];
 
 	while (elem) {
 		if (elem->addr == addr) {
+			if ((type == EMD_LAB_NONE) && ref) {
+				elem->ref = ref;
+			} else if ((type != EMD_LAB_NONE) && !ref) {
+				elem->type = type;
+			}
 			return elem;
 		}
 		elem = elem->next;
@@ -74,11 +83,11 @@ struct emdas_dh_elem * emdas_dh_add(struct emdas_dh_table *dh, uint16_t addr, sh
 	struct emdas_dh_elem *new_elem = malloc(sizeof(struct emdas_dh_elem));
 	new_elem->addr = addr;
 	new_elem->type = type;
-	new_elem->flags = flags;
+	new_elem->ref = ref;
 	new_elem->next = dh->slots[hash];
 	dh->slots[hash] = new_elem;
 
-	return elem;
+	return new_elem;
 }
 
 // -----------------------------------------------------------------------
