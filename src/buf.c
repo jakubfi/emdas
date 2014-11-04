@@ -19,23 +19,21 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <ctype.h>
+#include <assert.h>
 
 #include "emdas/buf.h"
 
 // -----------------------------------------------------------------------
-struct emdas_buf * emdas_buf_create(int len)
+struct emdas_buf * emdas_buf_create(unsigned len)
 {
 	struct emdas_buf *buf = NULL;
-
-	if (len < 1) {
-		goto cleanup;
-	}
 
 	buf = malloc(sizeof(struct emdas_buf));
 	if (!buf) {
 		goto cleanup;
 	}
 
+	// +1 for '\0'
 	buf->buf = malloc(len+1);
 	if (!buf->buf) {
 		goto cleanup;
@@ -55,38 +53,35 @@ cleanup:
 // -----------------------------------------------------------------------
 void emdas_buf_destroy(struct emdas_buf *buf)
 {
-	if (!buf) return;
+	assert(buf);
 
 	free(buf->buf);
 	free(buf);
 }
 
 // -----------------------------------------------------------------------
-int emdas_buf_reset(struct emdas_buf *buf)
+void emdas_buf_reset(struct emdas_buf *buf)
 {
-	if (!buf) return -1;
+	assert(buf);
 
 	buf->pos = 0;
 	buf->lpos = 0;
 	buf->buf[0] = '\0';
 	buf->lines = 0;
-
-	return 0;
 }
 
 // -----------------------------------------------------------------------
-int emdas_buf_set_nl(struct emdas_buf *buf, char nl)
+void emdas_buf_set_nl(struct emdas_buf *buf, char nl)
 {
-	if (!buf) return -1;
+	assert(buf);
+
 	buf->nl = nl;
-	return 0;
 }
 
 // -----------------------------------------------------------------------
-
 int emdas_buf_c(struct emdas_buf *buf, char c)
 {
-	if (!buf) return 0;
+	assert(buf);
 
 	int clen = 0;
 
@@ -104,9 +99,10 @@ int emdas_buf_c(struct emdas_buf *buf, char c)
 // -----------------------------------------------------------------------
 int emdas_buf_nl(struct emdas_buf *buf)
 {
-	if (!buf) return 0;
+	assert(buf);
 
 	int clen = emdas_buf_c(buf, buf->nl);
+
 	if (clen != 0) {
 		buf->lpos = 0;
 		buf->lines++;
@@ -118,15 +114,17 @@ int emdas_buf_nl(struct emdas_buf *buf)
 // -----------------------------------------------------------------------
 int emdas_buf_app(struct emdas_buf *buf, const char *fmt, ...)
 {
-	if (!buf) return 0;
+	assert(buf);
 
 	va_list ap;
+
 	va_start(ap, fmt);
 	int clen = vsnprintf(buf->buf + buf->pos, buf->len - buf->pos, fmt, ap);
 	va_end(ap);
 
 	buf->lpos += clen;
 	buf->pos += clen;
+	buf->buf[buf->pos] = '\0';
 
 	return clen;
 }
@@ -134,7 +132,7 @@ int emdas_buf_app(struct emdas_buf *buf, const char *fmt, ...)
 // -----------------------------------------------------------------------
 int emdas_buf_tab(struct emdas_buf *buf, unsigned tab)
 {
-	if (!buf) return 0;
+	assert(buf);
 
 	int clen;
 	int left;
@@ -157,7 +155,7 @@ int emdas_buf_tab(struct emdas_buf *buf, unsigned tab)
 
 	// want
 	left = maxptr - ptr;
-	// if greater than buf left
+	// if greater than buf space left
 	if (left > (buf->len - buf->pos)) {
 		left = buf->len - buf->pos;
 	}
@@ -177,9 +175,9 @@ int emdas_buf_tab(struct emdas_buf *buf, unsigned tab)
 }
 
 // -----------------------------------------------------------------------
-int emdas_buf_tolower(struct emdas_buf *buf, int back)
+int emdas_buf_tolower(struct emdas_buf *buf, unsigned back)
 {
-	if (!buf) return 0;
+	assert(buf);
 
 	int clen = 0;
 

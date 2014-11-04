@@ -17,6 +17,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <assert.h>
 
 #include "emdas.h"
 #include "opfields.h"
@@ -63,7 +64,7 @@ cleanup:
 // -----------------------------------------------------------------------
 void emdas_destroy(struct emdas *emd)
 {
-	if (!emd) return;
+	assert(emd);
 
 	for (int i=0 ; i<16 ; i++) {
 		emdas_dh_destroy(emd->cellinfo[i]);
@@ -77,7 +78,7 @@ void emdas_destroy(struct emdas *emd)
 // -----------------------------------------------------------------------
 unsigned emdas_get_features(struct emdas *emd)
 {
-	if (!emd) return 0;
+	assert(emd);
 
 	return emd->features;
 }
@@ -85,7 +86,8 @@ unsigned emdas_get_features(struct emdas *emd)
 // -----------------------------------------------------------------------
 int emdas_set_features(struct emdas *emd, unsigned features)
 {
-	if (!emd) return -1;
+	assert(emd);
+
 	if ((features & (~EMD_FEAT_ALL))) return -1;
 
 	emd->features = features;
@@ -96,12 +98,16 @@ int emdas_set_features(struct emdas *emd, unsigned features)
 // -----------------------------------------------------------------------
 void emdas_set_nl(struct emdas *emd, char c)
 {
+	assert(emd);
+
 	emdas_buf_set_nl(emd->dbuf, c);
 }
 
 // -----------------------------------------------------------------------
 int emdas_set_tabs(struct emdas *emd, unsigned label, unsigned mnemo, unsigned arg, unsigned alt)
 {
+	assert(emd);
+
 	emd->tabs.label = label;
 	emd->tabs.mnemo = mnemo;
 	emd->tabs.arg = arg;
@@ -113,12 +119,16 @@ int emdas_set_tabs(struct emdas *emd, unsigned label, unsigned mnemo, unsigned a
 // -----------------------------------------------------------------------
 char * emdas_get_buf(struct emdas *emd)
 {
+	assert(emd);
+
 	return emd->dbuf->buf;
 }
 
 // -----------------------------------------------------------------------
 int emdas_get_linecnt(struct emdas *emd)
 {
+	assert(emd);
+
 	return emd->dbuf->lines;
 }
 
@@ -275,7 +285,7 @@ static void emdas_print_comment(struct emdas *emd, struct emdas_op *op, uint16_t
 }
 
 // -----------------------------------------------------------------------
-static void emdas_print_label(struct emdas *emd, int nb, uint16_t addr)
+static void emdas_print_label(struct emdas *emd, unsigned nb, uint16_t addr)
 {
 	struct emdas_dh_elem *lab = emdas_dh_get(emd->cellinfo[nb], addr);
 	if (lab && (lab->type != EMD_LAB_NONE)) {
@@ -285,7 +295,7 @@ static void emdas_print_label(struct emdas *emd, int nb, uint16_t addr)
 }
 
 // -----------------------------------------------------------------------
-static int emdas_print(struct emdas *emd, int nb, uint16_t addr, int as_data)
+static int emdas_print(struct emdas *emd, unsigned nb, uint16_t addr, int as_data)
 {
 	int len = 1;
 	struct emdas_op *op;
@@ -374,8 +384,14 @@ static int emdas_print(struct emdas *emd, int nb, uint16_t addr, int as_data)
 }
 
 // -----------------------------------------------------------------------
-int emdas_dasm(struct emdas *emd, int nb, uint16_t addr)
+int emdas_dasm(struct emdas *emd, unsigned nb, uint16_t addr)
 {
+	assert(emd);
+
+	if (nb > 15) {
+		return 0;
+	}
+
 	int len;
 
 	emdas_buf_reset(emd->dbuf);
@@ -386,9 +402,15 @@ int emdas_dasm(struct emdas *emd, int nb, uint16_t addr)
 }
 
 // -----------------------------------------------------------------------
-void emdas_analyze(struct emdas *emd, int nb, uint16_t addr, int size)
+int emdas_analyze(struct emdas *emd, unsigned nb, uint16_t addr, unsigned size)
 {
-	// redo hash, old one is useless
+	assert(emd);
+
+	if (nb > 15) {
+		return -1;
+	}
+
+	// redo hash, old one is useless now
 	emdas_dh_destroy(emd->cellinfo[nb]);
 	emd->cellinfo[nb] = emdas_dh_create();
 
@@ -400,7 +422,10 @@ void emdas_analyze(struct emdas *emd, int nb, uint16_t addr, int size)
 	struct emdas_dh_elem *ref;
 	int ref_ic;
 
-	while (ic < addr+size) {
+	int max_ic = addr+size-1;
+	if (max_ic > 0xffff) max_ic = 0xffff;
+
+	while (ic <= max_ic) {
 
 		// get instruction at IC
 		vop = emd->memget(nb, ic);
@@ -492,6 +517,8 @@ void emdas_analyze(struct emdas *emd, int nb, uint16_t addr, int size)
 			}
 		}
 	}
+
+	return 0;
 }
 
 // vim: tabstop=4 shiftwidth=4 autoindent

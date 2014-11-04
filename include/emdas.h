@@ -76,8 +76,8 @@ void emdas_set_nl(struct emdas *emd, char c);
 char * emdas_get_buf(struct emdas *emd);
 int emdas_get_linecnt(struct emdas *emd);
 
-int emdas_dasm(struct emdas *emd, int nb, uint16_t addr);
-void emdas_analyze(struct emdas *emd, int nb, uint16_t addr, int size);
+int emdas_dasm(struct emdas *emd, unsigned nb, uint16_t addr);
+int emdas_analyze(struct emdas *emd, unsigned nb, uint16_t addr, unsigned size);
 
 #endif
 
