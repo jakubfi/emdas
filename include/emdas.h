@@ -40,6 +40,7 @@ enum emdas_features {
 #define EMD_TAB_MNEMO 20
 #define EMD_TAB_ARG 26
 #define EMD_TAB_ALT 50
+#define EMD_TAB_MAX 120
 
 // getter function
 

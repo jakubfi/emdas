@@ -108,6 +108,10 @@ int emdas_set_tabs(struct emdas *emd, unsigned label, unsigned mnemo, unsigned a
 {
 	assert(emd);
 
+	if (!((label <= mnemo) && (mnemo <= arg) && (arg <= alt) && (alt <= EMD_TAB_MAX))) {
+		return -1;
+	}
+
 	emd->tabs.label = label;
 	emd->tabs.mnemo = mnemo;
 	emd->tabs.arg = arg;
