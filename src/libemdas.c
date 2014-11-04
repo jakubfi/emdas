@@ -373,7 +373,7 @@ static int emdas_print(struct emdas *emd, unsigned nb, uint16_t addr, int as_dat
 	}
 
 	// handle additional IN/OU "arguments"
-	if (!as_data && (op->flags & EMD_FL_INS_IO)) {
+	if ((emd->features & EMD_FEAT_IOARGS) && !as_data && (op->flags & EMD_FL_INS_IO)) {
 		uint16_t ioaddr = addr + (op->flags & EMD_FL_2WORD ? 2 : 1);
 		int cnt = 4;
 		while (cnt > 0) {
@@ -508,7 +508,7 @@ int emdas_analyze(struct emdas *emd, unsigned nb, uint16_t addr, unsigned size)
 		if (op->flags & EMD_FL_2WORD) ic++;
 
 		// process 4 additional I/O args
-		if (op->flags & EMD_FL_INS_IO) {
+		if ((emd->features & EMD_FEAT_IOARGS) && (op->flags & EMD_FL_INS_IO)) {
 			ltype = EMD_LAB_IO_NO;
 			for (int i=0 ; i<4 ; i++) {
 				varg = emd->memget(nb, ic);

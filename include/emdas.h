@@ -29,12 +29,13 @@
 enum emdas_features {
 	EMD_FEAT_NONE		= 0,
 	EMD_FEAT_ADDR		= 1 << 0,	// print addresses
-	EMD_FEAT_LMNEMO		= 1 << 1,	// lowercase mnemonics
+	EMD_FEAT_LMNEMO		= 1 << 1,	// use lowercase mnemonics
 	EMD_FEAT_ALTS		= 1 << 2,	// print alternatives in comments
+	EMD_FEAT_IOARGS		= 1 << 3,	// print IN/OU return addresses as instruction arguments
 };
 
-#define EMD_FEAT_ALL (EMD_FEAT_ADDR | EMD_FEAT_LMNEMO | EMD_FEAT_ALTS)
-#define EMD_FEAT_DEFAULTS (EMD_FEAT_ADDR | EMD_FEAT_ALTS)
+#define EMD_FEAT_ALL (EMD_FEAT_ADDR | EMD_FEAT_LMNEMO | EMD_FEAT_ALTS | EMD_FEAT_IOARGS)
+#define EMD_FEAT_DEFAULTS (EMD_FEAT_ADDR | EMD_FEAT_ALTS | EMD_FEAT_IOARGS)
 
 #define EMD_TAB_LABEL 8
 #define EMD_TAB_MNEMO 20
