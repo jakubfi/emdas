@@ -64,7 +64,7 @@ cleanup:
 // -----------------------------------------------------------------------
 void emdas_destroy(struct emdas *emd)
 {
-	assert(emd);
+	if (!emd) return;
 
 	for (int i=0 ; i<16 ; i++) {
 		emdas_dh_destroy(emd->cellinfo[i]);
