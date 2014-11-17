@@ -23,6 +23,7 @@
 #include "emdas/buf.h"
 #include "emdas/iset.h"
 #include "emdas/dh.h"
+#include "emdas/errors.h"
 
 #define EMD_DASM_BUF_SIZE 4096
 

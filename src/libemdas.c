@@ -20,6 +20,7 @@
 #include <assert.h>
 
 #include "emdas.h"
+#include "emdas/errors.h"
 #include "opfields.h"
 
 // -----------------------------------------------------------------------
@@ -28,11 +29,13 @@ struct emdas *emdas_create(int iset_type, emdas_getfun getfun)
 	struct emdas *emd = NULL;
 
 	if (!getfun) {
+		emdas_error = EMD_E_GETFUN_MISSING;
 		goto cleanup;
 	}
 
 	emd = malloc(sizeof(struct emdas));
 	if (!emd) {
+		emdas_error = EMD_E_ALLOC;
 		goto cleanup;
 	}
 
@@ -88,11 +91,13 @@ int emdas_set_features(struct emdas *emd, unsigned features)
 {
 	assert(emd);
 
-	if ((features & (~EMD_FEAT_ALL))) return -1;
+	if ((features & (~EMD_FEAT_ALL))) {
+		return EMD_E_FEATURE_UNKNOWN;
+	}
 
 	emd->features = features;
 
-	return 0;
+	return EMD_E_OK;
 }
 
 // -----------------------------------------------------------------------
@@ -109,7 +114,7 @@ int emdas_set_tabs(struct emdas *emd, unsigned label, unsigned mnemo, unsigned a
 	assert(emd);
 
 	if (!((label <= mnemo) && (mnemo <= arg) && (arg <= alt) && (alt <= EMD_TAB_MAX))) {
-		return -1;
+		return EMD_E_TABS_MISPLACED;
 	}
 
 	emd->tabs.label = label;
@@ -117,7 +122,7 @@ int emdas_set_tabs(struct emdas *emd, unsigned label, unsigned mnemo, unsigned a
 	emd->tabs.arg = arg;
 	emd->tabs.alt = alt;
 
-	return 0;
+	return EMD_E_OK;
 }
 
 // -----------------------------------------------------------------------
@@ -393,6 +398,7 @@ int emdas_dasm(struct emdas *emd, unsigned nb, uint16_t addr)
 	assert(emd);
 
 	if (nb > 15) {
+		emdas_error = EMD_E_MEM_BLOCK;
 		return 0;
 	}
 
@@ -411,12 +417,15 @@ int emdas_analyze(struct emdas *emd, unsigned nb, uint16_t addr, unsigned size)
 	assert(emd);
 
 	if (nb > 15) {
-		return -1;
+		return EMD_E_MEM_BLOCK;
 	}
 
 	// redo hash, old one is useless now
 	emdas_dh_destroy(emd->cellinfo[nb]);
 	emd->cellinfo[nb] = emdas_dh_create();
+	if (!emd->cellinfo) {
+		return emdas_error;
+	}
 
 	int ic = addr;
 	uint16_t *vop, *varg;
@@ -455,7 +464,12 @@ int emdas_analyze(struct emdas *emd, unsigned nb, uint16_t addr, unsigned size)
 				varg = emd->memget(nb, ref_ic);
 				if (varg && (*varg >= addr) && (*varg < addr+size)) {
 					ref = emdas_dh_add(emd->cellinfo[nb], *varg, EMD_LAB_WORD, NULL);
-					emdas_dh_add(emd->cellinfo[nb], ref_ic, EMD_LAB_NONE, ref);
+					if (!ref) {
+						return emdas_error;
+					}
+					if (!emdas_dh_add(emd->cellinfo[nb], ref_ic, EMD_LAB_NONE, ref)) {
+						return emdas_error;
+					}
 				}
 			}
 		}
@@ -500,7 +514,12 @@ int emdas_analyze(struct emdas *emd, unsigned nb, uint16_t addr, unsigned size)
 		// we've found something - add label
 		if ((laddr >= 0) && (laddr >= addr) && (laddr < addr+size)) {
 			ref = emdas_dh_add(emd->cellinfo[nb], laddr, ltype, NULL);
-			emdas_dh_add(emd->cellinfo[nb], ref_ic, EMD_LAB_NONE, ref);
+			if (!ref) {
+				return emdas_error;
+			}
+			if (!emdas_dh_add(emd->cellinfo[nb], ref_ic, EMD_LAB_NONE, ref)) {
+				return emdas_error;
+			}
 		}
 
 		// advance IC
@@ -514,7 +533,12 @@ int emdas_analyze(struct emdas *emd, unsigned nb, uint16_t addr, unsigned size)
 				varg = emd->memget(nb, ic);
 				if (varg && (*varg >= addr) && (*varg < addr+size)) {
 					ref = emdas_dh_add(emd->cellinfo[nb], *varg, ltype, NULL);
-					emdas_dh_add(emd->cellinfo[nb], ic, EMD_LAB_NONE, ref);
+					if (!ref) {
+						return emdas_error;
+					}
+					if (!emdas_dh_add(emd->cellinfo[nb], ic, EMD_LAB_NONE, ref)) {
+						return emdas_error;
+					}
 				}
 				ic++;
 				ltype++;
@@ -522,7 +546,7 @@ int emdas_analyze(struct emdas *emd, unsigned nb, uint16_t addr, unsigned size)
 		}
 	}
 
-	return 0;
+	return EMD_E_OK;
 }
 
 // vim: tabstop=4 shiftwidth=4 autoindent

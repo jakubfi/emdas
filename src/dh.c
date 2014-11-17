@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include "emdas/errors.h"
 #include "emdas/dh.h"
 
 char *emdas_lab_types[] = { "none", "jmp", "call", "iono", "ioen", "iook", "iope", "byte", "word", "dword", "float", "word7" };
@@ -27,12 +28,14 @@ struct emdas_dh_table * emdas_dh_create()
 {
 	struct emdas_dh_table *dh = malloc(sizeof(struct emdas_dh_table));
 	if (!dh) {
+		emdas_error = EMD_E_ALLOC;
 		return NULL;
 	}
 
 	dh->slots = calloc(EMD_HASH_SIZE, sizeof(struct emdas_dh_elem));
 	if (!dh->slots) {
 		free(dh);
+		emdas_error = EMD_E_ALLOC;
 		return NULL;
 	}
 
@@ -81,6 +84,10 @@ struct emdas_dh_elem * emdas_dh_add(struct emdas_dh_table *dh, uint16_t addr, sh
 	}
 
 	struct emdas_dh_elem *new_elem = malloc(sizeof(struct emdas_dh_elem));
+	if (!new_elem) {
+		emdas_error = EMD_E_ALLOC;
+		return NULL;
+	}
 	new_elem->addr = addr;
 	new_elem->type = type;
 	new_elem->ref = ref;

@@ -2,6 +2,7 @@ add_library(emdas-lib SHARED
 	iset.c
 	buf.c
 	dh.c
+	errors.c
 	libemdas.c
 )
 
@@ -21,6 +22,7 @@ install(FILES
 	../include/emdas/iset.h
 	../include/emdas/buf.h
 	../include/emdas/dh.h
+	../include/emdas/errors.h
 	DESTINATION include/emdas
 )
 

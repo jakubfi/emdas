@@ -38,14 +38,12 @@ int iset = EMD_ISET_MERA400;
 int features = EMD_FEAT_ALL & ~EMD_FEAT_LMNEMO;
 int use_labels = 1;
 int base_addr;
-
 uint16_t *mem;
-int bin_size;
 
 // -----------------------------------------------------------------------
 void version()
 {
-	printf("EMDAS v%s - MERA-400 dissassembler\n", EMDAS_VERSION);
+	printf("EMDAS version %s - MERA-400 dissassembler\n", EMDAS_VERSION);
 }
 
 // -----------------------------------------------------------------------
@@ -124,7 +122,7 @@ int parse_args(int argc, char **argv)
 	if (optind == argc-1) {
 		input_file = argv[optind];
 	} else {
-		printf("Missing input file name.\n");
+		fprintf(stderr, "Missing input file name.\n");
 		return -1;
 	}
 
@@ -147,15 +145,16 @@ int main(int argc, char **argv)
 	struct emelf *e = NULL;
 	struct stat sb;
 
+	int bin_size;
+
 	res = parse_args(argc, argv);
 	if (res) {
-		printf("\n");
-		usage();
+		// wrong usage, parse_args() prints the error
 		goto cleanup;
 	}
 
 	if (stat(input_file, &sb) == -1) {
-		printf("Cannot stat file '%s'.\n", input_file);
+		fprintf(stderr, "Cannot stat file '%s'.\n", input_file);
 		goto cleanup;
 	}
 
@@ -165,20 +164,24 @@ int main(int argc, char **argv)
 
 	fi = fopen(input_file, "r");
 	if (!fi) {
-		printf("Cannot open input file '%s'.\n", input_file);
+		fprintf(stderr, "Cannot open input file '%s'.\n", input_file);
 		goto cleanup;
 	}
 
 	emd = emdas_create(iset, memget);
 	if (!emd) {
-		printf("Cannot setup disassembler.\n");
+		fprintf(stderr, "Cannot setup disassembler: %s\n", emdas_get_error(emdas_error));
 		goto cleanup;
 	}
 
-	emdas_set_tabs(emd, TAB_LABEL, TAB_MNEMO, TAB_ARG, TAB_COMMENT);
+	res = emdas_set_tabs(emd, TAB_LABEL, TAB_MNEMO, TAB_ARG, TAB_COMMENT);
+	if (res != EMD_E_OK) {
+		fprintf(stderr, "Cannot set tabulators: %s\n", emdas_get_error(res));
+		goto cleanup;
+	}
 	res = emdas_set_features(emd, features);
 	if (res) {
-		printf("Cannot set disassembler features.\n");
+		fprintf(stderr, "Cannot set disassembler features: %s\n", emdas_get_error(res));
 		goto cleanup;
 	}
 
@@ -192,7 +195,7 @@ int main(int argc, char **argv)
 		mem = calloc(0x10000, sizeof(uint16_t));
 		if (!mem) {
 			fclose(fi);
-			printf("Memory allocation error\n");
+			fprintf(stderr, "Memory allocation error\n");
 			goto cleanup;
 		}
 		rewind(fi);
@@ -203,7 +206,7 @@ int main(int argc, char **argv)
 	}
 
 	if (bin_size < 0) {
-		printf("Cannot read input file '%s'.\n", input_file);
+		fprintf(stderr, "Cannot read input file '%s'.\n", input_file);
 		fclose(fi);
 		goto cleanup;
 	}
@@ -216,7 +219,7 @@ int main(int argc, char **argv)
 	}
 
 	if (!fo) {
-		printf("Cannot open output file '%s' for writing.\n", output_file);
+		fprintf(stderr, "Cannot open output file '%s' for writing.\n", output_file);
 		goto cleanup;
 	}
 
@@ -225,13 +228,22 @@ int main(int argc, char **argv)
 
 	// disassemble and write output
 	if (use_labels) {
-		emdas_analyze(emd, 0, base_addr, bin_size);
+		res = emdas_analyze(emd, 0, base_addr, bin_size);
+		if (res != EMD_E_OK) {
+			fprintf(stderr, "Cannot assign labels: %s\n", emdas_get_error(res));
+			goto cleanup;
+		}
 	}
 
 	int ic = base_addr;
+	int words;
 	while (ic < base_addr+bin_size) {
-		ic += emdas_dasm(emd, 0, ic);
+		words = emdas_dasm(emd, 0, ic);
+		if (words <= 0) {
+			fprintf(stderr, "Disassembly error: %s\n", emdas_get_error(emdas_error));
+		}
 		fprintf(fo, "%s", emdas_get_buf(emd));
+		ic += words;
 	}
 
 	if (output_file) {

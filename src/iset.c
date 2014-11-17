@@ -17,8 +17,10 @@
 
 #include <stdlib.h>
 #include <inttypes.h>
+#include <assert.h>
 
 #include "emdas/iset.h"
+#include "emdas/errors.h"
 #include "opfields.h"
 
 char *emdas_iset_mnemo[EMD_OP_MAX] = {
@@ -209,7 +211,7 @@ static struct emdas_instr emdas_ilist[] = {
 };
 
 // -----------------------------------------------------------------------
-static int emdas_iset_register_op(struct emdas_op *op_tab, uint16_t opcode, uint16_t mask, struct emdas_op *op)
+static void emdas_iset_register_op(struct emdas_op *op_tab, uint16_t opcode, uint16_t mask, struct emdas_op *op)
 {
 	int i, pos;
 	int offsets[16];
@@ -217,8 +219,9 @@ static int emdas_iset_register_op(struct emdas_op *op_tab, uint16_t opcode, uint
 	int max;
 	uint16_t result;
 
-	// if mask is empty - nothing to do
-	if (mask == 0) return -1;
+	assert(op_tab);
+	assert(mask);
+	assert(op);
 
 	// store 1's positions in mask, count 1's
 	for (i=0 ; i<16 ; i++) {
@@ -262,16 +265,19 @@ static int emdas_iset_register_op(struct emdas_op *op_tab, uint16_t opcode, uint
 			dop->flags |= EMD_FL_ARG_FLAGS;
 		}
 	}
-	return 0;
 }
 
 // -----------------------------------------------------------------------
 struct emdas_op * emdas_iset_create(int type)
 {
-	int res;
+	if ((type != EMD_ISET_MERA400) && (type != EMD_ISET_MX16)) {
+		emdas_error = EMD_E_ISET_UNKNOWN;
+		return NULL;
+	}
 
 	struct emdas_op *op_tab = malloc(sizeof(struct emdas_op) * 0x10000);
 	if (!op_tab) {
+		emdas_error = EMD_E_ALLOC;
 		return NULL;
 	}
 
@@ -279,11 +285,7 @@ struct emdas_op * emdas_iset_create(int type)
 	struct emdas_instr *instr = emdas_ilist;
 	while (instr->var_mask) {
 		if (!(instr->op.flags & EMD_FL_INS_MX16) || ((type == EMD_ISET_MX16) && (instr->op.flags & EMD_FL_INS_MX16))) {
-			res = emdas_iset_register_op(op_tab, instr->opcode, instr->var_mask, &instr->op);
-			if (res) {
-				free(op_tab);
-				return NULL;
-			}
+			emdas_iset_register_op(op_tab, instr->opcode, instr->var_mask, &instr->op);
 		}
 		instr++;
 	}

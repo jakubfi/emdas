@@ -21,6 +21,7 @@
 #include <ctype.h>
 #include <assert.h>
 
+#include "emdas/errors.h"
 #include "emdas/buf.h"
 
 // -----------------------------------------------------------------------
@@ -30,12 +31,14 @@ struct emdas_buf * emdas_buf_create(unsigned len)
 
 	buf = malloc(sizeof(struct emdas_buf));
 	if (!buf) {
+		emdas_error = EMD_E_ALLOC;
 		goto cleanup;
 	}
 
 	// +1 for '\0'
 	buf->buf = malloc(len+1);
 	if (!buf->buf) {
+		emdas_error = EMD_E_ALLOC;
 		goto cleanup;
 	}
 
