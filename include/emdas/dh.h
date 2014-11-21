@@ -15,8 +15,8 @@
 //  Foundation, Inc.,
 //  51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
-#ifndef DH_H
-#define DH_H
+#ifndef EMDAS_DH_H
+#define EMDAS_DH_H
 
 #include <inttypes.h>
 

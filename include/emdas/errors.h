@@ -15,8 +15,8 @@
 //  Foundation, Inc.,
 //  51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
-#ifndef ERRORS_H
-#define ERRORS_H
+#ifndef EMDAS_ERRORS_H
+#define EMDAS_ERRORS_H
 
 extern int emdas_error;
 
