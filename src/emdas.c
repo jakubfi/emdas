@@ -159,7 +159,7 @@ int main(int argc, char **argv)
 	}
 
 	if (sb.st_size > 2*(0x10000-base_addr)) {
-		fprintf(stderr, "Warning: File is bigger than available address space (%lli bytes > %i words). Output will be truncated.\n", sb.st_size, 0x10000-base_addr);
+		fprintf(stderr, "Warning: File is bigger than available address space (%li bytes > %i words). Output will be truncated.\n", sb.st_size, 0x10000-base_addr);
 	}
 
 	fi = fopen(input_file, "r");
