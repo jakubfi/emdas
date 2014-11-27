@@ -32,9 +32,9 @@ emdas [options] input
 
 Where *options* are:
 
-* **-o <output>** - specify output file (stdout otherwise)
-* **-c <cpu>** - set CPU type: *mera400*, *mx16* (default is *mera400*)
-* **-a <addr>** - set base address
+* **-o output** - specify output file (*stdout* otherwise)
+* **-c cpu** - set CPU type: *mera400*, *mx16* (default is *mera400*)
+* **-a addr** - set base address
 * **-l** - use lowercase mnemonics
 * **-na** - do not print adresses
 * **-nc** - do not print alternatives in comments
