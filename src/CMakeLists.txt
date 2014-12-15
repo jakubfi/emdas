@@ -26,6 +26,11 @@ install(FILES
 	DESTINATION include/emdas
 )
 
+install(FILES
+	cmake/EmdasConfig.cmake
+	DESTINATION lib/Emdas
+)
+
 add_executable(emdas
 	emdas.c
 )

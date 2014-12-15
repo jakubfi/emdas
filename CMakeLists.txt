@@ -18,6 +18,6 @@ else(DEBUG)
 	add_definitions(-DNDEBUG -O3)
 endif(DEBUG)
 
-add_subdirectory(src build)
+add_subdirectory(src)
 
 # vim: tabstop=4
