@@ -8,7 +8,7 @@ add_library(emdas-lib SHARED
 
 set_target_properties(emdas-lib PROPERTIES
 	OUTPUT_NAME "emdas"
-	SOVERSION ${EMDAS_VERSION_MAJOR}
+	SOVERSION ${EMDAS_VERSION_MAJOR}.${EMDAS_VERSION_MINOR}
 	PUBLIC_HEADER "${CMAKE_SOURCE_DIR}/include/emdas.h"
 )
 
