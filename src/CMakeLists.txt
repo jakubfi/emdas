@@ -14,28 +14,22 @@ set_target_properties(emdas-lib PROPERTIES
 
 install(TARGETS emdas-lib
 	LIBRARY DESTINATION lib
-	ARCHIVE DESTINATION lib
 	PUBLIC_HEADER DESTINATION include
 )
 
 install(FILES
-	../include/emdas/iset.h
-	../include/emdas/buf.h
-	../include/emdas/dh.h
-	../include/emdas/errors.h
+	${CMAKE_SOURCE_DIR}/include/emdas/iset.h
+	${CMAKE_SOURCE_DIR}/include/emdas/buf.h
+	${CMAKE_SOURCE_DIR}/include/emdas/dh.h
+	${CMAKE_SOURCE_DIR}/include/emdas/errors.h
 	DESTINATION include/emdas
-)
-
-install(FILES
-	cmake/EmdasConfig.cmake
-	DESTINATION lib/Emdas
 )
 
 add_executable(emdas
 	emdas.c
 )
 
-target_link_libraries(emdas emdas-lib emelf)
+target_link_libraries(emdas emdas-lib ${EMELF_LIBRARIES})
 
 install(TARGETS emdas RUNTIME DESTINATION bin)
 

@@ -1,0 +1,6 @@
+build/
+tests/
+a.out
+*.swp
+*.bin
+*.asm
