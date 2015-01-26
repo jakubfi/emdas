@@ -130,9 +130,10 @@ int parse_args(int argc, char **argv)
 }
 
 // -----------------------------------------------------------------------
-uint16_t * memget(int nb, uint16_t addr)
+int memget(int nb, uint16_t addr, uint16_t *dest)
 {
-	return mem + addr;
+	*dest = mem[addr];
+	return 1;
 }
 
 // -----------------------------------------------------------------------

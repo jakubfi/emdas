@@ -46,8 +46,7 @@ enum emdas_features {
 
 // getter function
 
-typedef uint16_t * (*emdas_getfun)(int nb, uint16_t addr);
-
+typedef int (*emdas_getfun)(int nb, uint16_t addr, uint16_t *dest);
 
 // emdas object
 
