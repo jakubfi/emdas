@@ -29,7 +29,7 @@ add_executable(emdas
 	emdas.c
 )
 
-target_link_libraries(emdas emdas-lib ${EMELF_LIBRARIES})
+target_link_libraries(emdas emdas-lib ${EMELF_LIBRARIES} ${EMAWP_LIBRARIES})
 
 install(TARGETS emdas RUNTIME DESTINATION bin)
 

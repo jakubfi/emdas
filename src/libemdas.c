@@ -19,6 +19,8 @@
 #include <stdio.h>
 #include <assert.h>
 
+#include <emawp.h>
+
 #include "emdas.h"
 #include "emdas/errors.h"
 #include "opfields.h"
@@ -294,12 +296,51 @@ static void emdas_print_comment(struct emdas *emd, struct emdas_op *op, uint16_t
 }
 
 // -----------------------------------------------------------------------
-static void emdas_print_label(struct emdas *emd, unsigned nb, uint16_t addr)
+static int emdas_print_label(struct emdas *emd, unsigned nb, uint16_t addr)
 {
+	int lab_type = EMD_LAB_NONE;
+
 	struct emdas_dh_elem *lab = emdas_dh_get(emd->cellinfo[nb], addr);
 	if (lab && (lab->type != EMD_LAB_NONE)) {
 		emdas_buf_tab(emd->dbuf, emd->tabs.label);
 		emdas_buf_app(emd->dbuf, "%s_%x:", emdas_lab_types[lab->type], lab->addr);
+		lab_type = lab->type;
+	}
+
+	return lab_type;
+}
+
+// -----------------------------------------------------------------------
+static void emdas_print_float(struct emdas *emd, unsigned nb, uint16_t addr)
+{
+	uint16_t r1, r2, r3;
+	double f;
+	int cnt = 0;
+
+	cnt += emd->memget(nb, addr, &r1);
+	cnt += emd->memget(nb, addr+1, &r2);
+	cnt += emd->memget(nb, addr+2, &r3);
+
+	if (cnt == 3) {
+		awp_to_double(&f, r1, r2, r3);
+		emdas_buf_app(emd->dbuf, "; .float %f", f);
+	}
+}
+
+// -----------------------------------------------------------------------
+static void emdas_print_dword(struct emdas *emd, unsigned nb, uint16_t addr)
+{
+	uint16_t r1, r2;
+	int32_t dw;
+	int cnt = 0;
+
+	cnt += emd->memget(nb, addr, &r1);
+	cnt += emd->memget(nb, addr+1, &r2);
+
+	if (cnt == 2) {
+		dw = r1 << 16;
+		dw |= r2 & 0xffff;
+		emdas_buf_app(emd->dbuf, "; .dword %i", dw);
 	}
 }
 
@@ -313,6 +354,7 @@ static int emdas_print(struct emdas *emd, unsigned nb, uint16_t addr, int as_dat
 	int has_varg = 0;
 	struct emdas_dh_elem *ref = NULL;
 	int split_arg = 0;
+	int lab_type;
 
 	// 1. print address
 	if (emd->features & EMD_FEAT_ADDR) {
@@ -320,7 +362,7 @@ static int emdas_print(struct emdas *emd, unsigned nb, uint16_t addr, int as_dat
 	}
 
 	// 2. print label
-	emdas_print_label(emd, nb, addr);
+	lab_type = emdas_print_label(emd, nb, addr);
 
 	emdas_buf_tab(emd->dbuf, emd->tabs.mnemo);
 
@@ -367,9 +409,19 @@ static int emdas_print(struct emdas *emd, unsigned nb, uint16_t addr, int as_dat
 	}
 
 	// 5. print comment with alternatives
-	if ((emd->features & EMD_FEAT_ALTS) && (op->id != EMD_OP_NONE)) {
-		emdas_buf_tab(emd->dbuf, emd->tabs.alt);
-		emdas_print_comment(emd, op, has_varg ? &varg : NULL, as_data);
+	if (emd->features & EMD_FEAT_ALTS) {
+		if (op->id != EMD_OP_NONE) {
+			emdas_buf_tab(emd->dbuf, emd->tabs.alt);
+			emdas_print_comment(emd, op, has_varg ? &varg : NULL, as_data);
+		}
+
+		if (lab_type == EMD_LAB_FLOAT) {
+			emdas_buf_tab(emd->dbuf, emd->tabs.alt);
+			emdas_print_float(emd, nb, addr);
+		} else if (lab_type == EMD_LAB_DWORD) {
+			emdas_buf_tab(emd->dbuf, emd->tabs.alt);
+			emdas_print_dword(emd, nb, addr);
+		}
 	}
 
 	// handle split arg

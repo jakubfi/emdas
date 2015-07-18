@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 2.8.4)
 project(emdas C)
 
 find_package(emelf REQUIRED)
+find_package(emawp REQUIRED)
 
 set(DEBUG 0)
 

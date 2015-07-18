@@ -38,6 +38,7 @@ int iset = EMD_ISET_MERA400;
 int features = EMD_FEAT_ALL & ~EMD_FEAT_LMNEMO;
 int use_labels = 1;
 int base_addr;
+int bin_size;
 uint16_t *mem;
 
 // -----------------------------------------------------------------------
@@ -132,8 +133,12 @@ int parse_args(int argc, char **argv)
 // -----------------------------------------------------------------------
 int memget(int nb, uint16_t addr, uint16_t *dest)
 {
-	*dest = mem[addr];
-	return 1;
+	if (addr < bin_size) {
+		*dest = mem[addr];
+		return 1;
+	} else {
+		return 0;
+	}
 }
 
 // -----------------------------------------------------------------------
@@ -145,8 +150,6 @@ int main(int argc, char **argv)
 	struct emdas *emd = NULL;
 	struct emelf *e = NULL;
 	struct stat sb;
-
-	int bin_size;
 
 	res = parse_args(argc, argv);
 	if (res) {
