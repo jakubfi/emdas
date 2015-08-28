@@ -199,7 +199,7 @@ static void emdas_print_arg(struct emdas *emd, struct emdas_op *op, uint16_t *va
 		if (ref) {
 			emdas_buf_app(emd->dbuf, "%s_%x", emdas_lab_types[ref->type], ref->addr);
 		} else {
-			emdas_buf_app(emd->dbuf, "%i", _T(op->v));
+			emdas_buf_app(emd->dbuf, "%s%i", _Tsign(op->v), _Tabs(op->v));
 		}
 
 	// short 8-bit argument
@@ -375,6 +375,12 @@ static int emdas_print(struct emdas *emd, unsigned nb, uint16_t addr, int as_dat
 		return len;
 	}
 
+	// deopcodize strange ops (but leave op as it is, because we still
+	// want to print an alternative
+	if ((op->flags & EMD_FL_OP_STRANGE)) {
+		as_data = 1;
+	}
+
 	// 3. print mnemonic
 	emdas_print_op(emd, op, as_data);
 
@@ -499,6 +505,12 @@ int emdas_analyze(struct emdas *emd, unsigned nb, uint16_t addr, unsigned size)
 			continue;
 		}
 		op = emd->ops + vop;
+
+		// do nothing for suspicious ops
+		if (FMATCH(op->flags, EMD_FL_OP_STRANGE)) {
+			ic++;
+			continue;
+		}
 
 		laddr = -1;
 		ltype = EMD_LAB_NONE;

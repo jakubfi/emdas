@@ -29,6 +29,9 @@
 #define _t(x)   (uint8_t) (((x) & 0b0000000000000111) | (((x) & 0b0000001000000000) >> 6)) // only SHC uses it
 #define _b(x)   ((x) & 0b0000000011111111)
 
+#define _Tabs(x)		(((x) & 0b0000000000111111) >> 0)
+#define _Tsign(x)		((x) & 0b0000001000000000 ? "-" : "")
+
 #endif
 
 // vim: tabstop=4 shiftwidth=4 autoindent

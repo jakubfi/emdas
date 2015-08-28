@@ -244,32 +244,30 @@ static void emdas_iset_register_op(struct emdas_op *op_tab, uint16_t opcode, uin
 
 		// register the op
 		int dopcode = opcode | result;
-		struct emdas_op *dop = op_tab + dopcode;
+		struct emdas_op *dop = op_tab + (dopcode);
 
+		dop->id = op->id;
+		dop->flags = op->flags;
 		dop->v = dopcode;
 
-		// if the instruction has 7-bit arg which is -0, it's not a real instruction
-		if ((op->flags & EMD_FL_ARG_SHORT7) && _D(dopcode) && !_B(dopcode) && !_C(dopcode)) {
-			dop->id = 0;
-			dop->flags = EMD_FL_NONE;
-		} else {
-			dop->id = op->id;
-			dop->flags = op->flags;
-
-			// set norm arg flags
-			if (dop->flags & EMD_FL_ARG_NORM) {
-				if (!_C(dopcode)) dop->flags |= EMD_FL_2WORD;
-				if (_D(dopcode)) dop->flags |= EMD_FL_MOD_D;
-				if (_B(dopcode)) dop->flags |= EMD_FL_MOD_B;
+		// set norm arg flags
+		if (dop->flags & EMD_FL_ARG_NORM) {
+			if (!_C(dopcode)) dop->flags |= EMD_FL_2WORD;
+			if (_D(dopcode)) dop->flags |= EMD_FL_MOD_D;
+			if (_B(dopcode)) dop->flags |= EMD_FL_MOD_B;
+		// 7-bit short arg
+		} else if (dop->flags & EMD_FL_ARG_SHORT7) {
+			// suspicious negative 0 in 7-bit argument
+			if (_D(dopcode) && !_B(dopcode) && !_C(dopcode)) {
+				dop->flags |= EMD_FL_OP_STRANGE;
 			}
-
-			// check for argument that reffers to cpuflags
-			// (instruction is a bit-branch and register is r0)
-			if (((dop->id >= EMD_OP_BB) && (dop->id <= EMD_OP_BN) && (_A(dopcode) == 0))
+		}
+		// check for argument that reffers to cpuflags
+		// (instruction is a bit-branch and register is r0)
+		if (((dop->id >= EMD_OP_BB) && (dop->id <= EMD_OP_BN) && (_A(dopcode) == 0))
 			|| (dop->id == EMD_OP_BRC)
 			|| (dop->id == EMD_OP_BLC)) {
-				dop->flags |= EMD_FL_ARG_FLAGS;
-			}
+			dop->flags |= EMD_FL_ARG_FLAGS;
 		}
 	}
 }
