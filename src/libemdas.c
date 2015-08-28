@@ -199,7 +199,7 @@ static void emdas_print_arg(struct emdas *emd, struct emdas_op *op, uint16_t *va
 		if (ref) {
 			emdas_buf_app(emd->dbuf, "%s_%x", emdas_lab_types[ref->type], ref->addr);
 		} else {
-			emdas_buf_app(emd->dbuf, "%s%i", _Tsign(op->v), _Tabs(op->v));
+			emdas_buf_app(emd->dbuf, "%i", _T(op->v));
 		}
 
 	// short 8-bit argument
