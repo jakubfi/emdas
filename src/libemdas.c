@@ -289,7 +289,7 @@ static void emdas_print_comment(struct emdas *emd, struct emdas_op *op, uint16_t
 				}
 			} else {
 				// cannot read memory
-				emdas_buf_app(emd->dbuf, ", %s", "???");
+				emdas_buf_app(emd->dbuf, ", %s", "; ???");
 			}
 		}
 	}
@@ -371,7 +371,7 @@ static int emdas_print(struct emdas *emd, unsigned nb, uint16_t addr, int as_dat
 		op = emd->ops + vop;
 	} else {
 		// no memory
-		emdas_buf_app(emd->dbuf, "%s", "???");
+		emdas_buf_app(emd->dbuf, "%s", "; ???");
 		return len;
 	}
 
