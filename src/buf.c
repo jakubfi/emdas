@@ -192,5 +192,4 @@ int emdas_buf_tolower(struct emdas_buf *buf, unsigned back)
 	return clen;
 }
 
-
 // vim: tabstop=4 shiftwidth=4 autoindent

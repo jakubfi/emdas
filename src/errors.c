@@ -47,5 +47,4 @@ char * emdas_get_error(int e)
 	return edict->message;
 }
 
-
 // vim: tabstop=4 autoindent

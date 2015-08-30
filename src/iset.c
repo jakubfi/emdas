@@ -256,7 +256,6 @@ static void emdas_iset_register_op(struct emdas_op *op_tab, uint16_t opcode, uin
 	uint16_t result;
 
 	assert(op_tab);
-	assert(mask);
 	assert(op);
 
 	// store 1's positions in mask, count 1's
@@ -280,7 +279,7 @@ static void emdas_iset_register_op(struct emdas_op *op_tab, uint16_t opcode, uin
 
 		// register the op
 		int dopcode = opcode | result;
-		struct emdas_op *dop = op_tab + (dopcode);
+		struct emdas_op *dop = op_tab + dopcode;
 
 		dop->id = op->id;
 		dop->flags = op->flags;
@@ -323,6 +322,7 @@ struct emdas_op * emdas_iset_create(int type)
 		}
 		instr++;
 	}
+
 	return op_tab;
 }
 
