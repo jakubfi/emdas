@@ -233,7 +233,7 @@ static void emdas_print_arg(struct emdas *emd, struct emdas_op *op, uint16_t *va
 			} else if (ref) {
 				emdas_buf_app(emd->dbuf, "%s_%x", emdas_lab_types[ref->type], ref->addr);
 			// arg refers to CPU flags
-			} else if (op->flags & EMD_FL_ARG_FLAGS) {
+			} else if ((op->flags & EMD_FL_ARG_FLAGS) && !(op->flags & EMD_FL_MOD_D)) {
 				emdas_print_flags(emd->dbuf, *varg);
 			// print small integers as decimal
 			} else if (*varg < 16) {
