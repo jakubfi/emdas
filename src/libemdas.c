@@ -115,14 +115,37 @@ int emdas_set_tabs(struct emdas *emd, unsigned label, unsigned mnemo, unsigned a
 {
 	assert(emd);
 
-	if (!((label <= mnemo) && (mnemo <= arg) && (arg <= alt) && (alt <= EMD_TAB_MAX))) {
-		return EMD_E_TABS_MISPLACED;
+	if (label < EMD_TAB_MAX) {
+		emd->tabs.label = label;
+	} else {
+		emd->tabs.label = EMD_TAB_MAX;
 	}
 
-	emd->tabs.label = label;
-	emd->tabs.mnemo = mnemo;
-	emd->tabs.arg = arg;
-	emd->tabs.alt = alt;
+	if (mnemo < emd->tabs.label) {
+		emd->tabs.mnemo = emd->tabs.label;
+	} else if (mnemo > EMD_TAB_MAX) {
+		emd->tabs.mnemo = EMD_TAB_MAX;
+	} else {
+		emd->tabs.mnemo = mnemo;
+	}
+
+	if (arg < emd->tabs.mnemo) {
+		emd->tabs.arg = emd->tabs.mnemo;
+	} else if (arg > EMD_TAB_MAX) {
+		emd->tabs.arg = EMD_TAB_MAX;
+	} else {
+		emd->tabs.arg = arg;
+	}
+
+	if (alt < emd->tabs.arg) {
+		emd->tabs.alt = emd->tabs.arg;
+	} else if (alt > EMD_TAB_MAX) {
+		emd->tabs.alt = EMD_TAB_MAX;
+	} else {
+		emd->tabs.alt = alt;
+	}
+
+
 
 	return EMD_E_OK;
 }
