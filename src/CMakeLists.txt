@@ -12,6 +12,8 @@ set_target_properties(emdas-lib PROPERTIES
 	PUBLIC_HEADER "${CMAKE_SOURCE_DIR}/include/emdas.h"
 )
 
+target_link_libraries(emdas-lib ${EMAWP_LIBRARIES})
+
 install(TARGETS emdas-lib
 	LIBRARY DESTINATION lib
 	PUBLIC_HEADER DESTINATION include
@@ -29,7 +31,7 @@ add_executable(emdas
 	emdas.c
 )
 
-target_link_libraries(emdas emdas-lib ${EMELF_LIBRARIES} ${EMAWP_LIBRARIES})
+target_link_libraries(emdas emdas-lib ${EMELF_LIBRARIES})
 
 install(TARGETS emdas RUNTIME DESTINATION bin)
 
