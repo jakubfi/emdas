@@ -511,7 +511,7 @@ int emdas_analyze(struct emdas *emd, unsigned nb, uint16_t addr, unsigned size)
 	// redo hash, old one is useless now
 	emdas_dh_destroy(emd->cellinfo[nb]);
 	emd->cellinfo[nb] = emdas_dh_create();
-	if (!emd->cellinfo) {
+	if (!(emd->cellinfo[nb])) {
 		return emdas_error;
 	}
 
