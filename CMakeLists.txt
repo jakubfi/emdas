@@ -1,19 +1,16 @@
 cmake_minimum_required(VERSION 2.8.4)
 project(emdas C)
 
+include(appversion.cmake)
+
 find_package(emelf REQUIRED)
 find_package(emawp REQUIRED)
 
 set(DEBUG 0)
 
-set(EMDAS_VERSION_MAJOR 2)
-set(EMDAS_VERSION_MINOR 2)
-set(EMDAS_VERSION_PATCH 1)
-set(EMDAS_VERSION ${EMDAS_VERSION_MAJOR}.${EMDAS_VERSION_MINOR}.${EMDAS_VERSION_PATCH})
-
 include_directories(${CMAKE_SOURCE_DIR}/include)
 
-add_definitions(-Wall -std=c99 -D_XOPEN_SOURCE=700 -DEMDAS_VERSION="${EMDAS_VERSION}")
+add_definitions(-Wall -std=c99 -D_XOPEN_SOURCE=700 -DEMDAS_VERSION="${APP_VERSION}")
 
 if(DEBUG)
 	add_definitions(-DDEBUG -g -O0)
