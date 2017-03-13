@@ -12,7 +12,8 @@ set_target_properties(emdas-lib PROPERTIES
 	PUBLIC_HEADER "${CMAKE_SOURCE_DIR}/include/emdas.h"
 )
 
-target_link_libraries(emdas-lib ${EMAWP_LIBRARIES})
+include_directories(${EMAWP_INCLUDE_DIRS} ${EMELF_INCLUDE_DIRS})
+target_link_libraries(emdas-lib ${EMAWP_LIBRARIES} ${EMELF_LIBRARIES})
 
 install(TARGETS emdas-lib
 	LIBRARY DESTINATION lib
