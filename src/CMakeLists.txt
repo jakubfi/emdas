@@ -16,8 +16,8 @@ include_directories(${EMAWP_INCLUDE_DIRS} ${EMELF_INCLUDE_DIRS})
 target_link_libraries(emdas-lib ${EMAWP_LIBRARIES} ${EMELF_LIBRARIES})
 
 install(TARGETS emdas-lib
-	LIBRARY DESTINATION lib
-	PUBLIC_HEADER DESTINATION include
+	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+	PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 
 install(FILES
@@ -25,7 +25,7 @@ install(FILES
 	${CMAKE_SOURCE_DIR}/include/emdas/buf.h
 	${CMAKE_SOURCE_DIR}/include/emdas/dh.h
 	${CMAKE_SOURCE_DIR}/include/emdas/errors.h
-	DESTINATION include/emdas
+	DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/emdas
 )
 
 add_executable(emdas
@@ -34,6 +34,6 @@ add_executable(emdas
 
 target_link_libraries(emdas emdas-lib ${EMELF_LIBRARIES})
 
-install(TARGETS emdas RUNTIME DESTINATION bin)
+install(TARGETS emdas RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 # vim: tabstop=4

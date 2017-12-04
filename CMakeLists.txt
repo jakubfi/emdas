@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 2.8.4)
 project(emdas C)
 
+include(GNUInstallDirs)
 include(appversion.cmake)
 
 find_package(emelf REQUIRED)
@@ -35,7 +36,7 @@ configure_file(
 install(FILES
 	${PROJECT_BINARY_DIR}/emdas-config.cmake
 	${PROJECT_BINARY_DIR}/emdas-config-version.cmake
-	DESTINATION lib/emdas
+	DESTINATION ${CMAKE_INSTALL_LIBDIR}/emdas
 	COMPONENT dev
 )
 
