@@ -20,14 +20,6 @@ install(TARGETS emdas-lib
 	PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 
-install(FILES
-	${CMAKE_SOURCE_DIR}/include/emdas/iset.h
-	${CMAKE_SOURCE_DIR}/include/emdas/buf.h
-	${CMAKE_SOURCE_DIR}/include/emdas/dh.h
-	${CMAKE_SOURCE_DIR}/include/emdas/errors.h
-	DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/emdas
-)
-
 add_executable(emdas
 	emdas.c
 )

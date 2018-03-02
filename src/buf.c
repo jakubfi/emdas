@@ -21,8 +21,17 @@
 #include <ctype.h>
 #include <assert.h>
 
-#include "emdas/errors.h"
-#include "emdas/buf.h"
+#include "emdas.h"
+#include "buf.h"
+
+struct emdas_buf {
+	char *buf;
+	int len;
+	int pos;
+	int lpos;
+	int lines;
+	char nl;
+};
 
 // -----------------------------------------------------------------------
 struct emdas_buf * emdas_buf_create(unsigned len)
@@ -190,6 +199,18 @@ int emdas_buf_tolower(struct emdas_buf *buf, unsigned back)
 	}
 
 	return clen;
+}
+
+// -----------------------------------------------------------------------
+char * emdas_buf_getbuf(struct emdas_buf *buf)
+{
+	return buf->buf;
+}
+
+// -----------------------------------------------------------------------
+int emdas_buf_getlines(struct emdas_buf *buf)
+{
+	return buf->lines;
 }
 
 // vim: tabstop=4 shiftwidth=4 autoindent

@@ -20,52 +20,48 @@
 
 #include <inttypes.h>
 
-#include "emdas/buf.h"
-#include "emdas/iset.h"
-#include "emdas/dh.h"
-#include "emdas/errors.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-#define EMD_DASM_BUF_SIZE 4096
+// instruction sets
+
+enum emdas_iset_type {
+	EMD_ISET_MERA400,
+	EMD_ISET_MX16,
+};
+
+// disassembly features
 
 enum emdas_features {
-	EMD_FEAT_NONE		= 0,
+	EMD_FEAT_NONE		= 0,		// all features off
 	EMD_FEAT_ADDR		= 1 << 0,	// print addresses
 	EMD_FEAT_LMNEMO		= 1 << 1,	// use lowercase mnemonics
 	EMD_FEAT_ALTS		= 1 << 2,	// print alternatives in comments
 	EMD_FEAT_IOARGS		= 1 << 3,	// print IN/OU return addresses as instruction arguments
+	EMD_FEAT_ALL		= EMD_FEAT_ADDR | EMD_FEAT_LMNEMO | EMD_FEAT_ALTS | EMD_FEAT_IOARGS,
+	EMD_FEAT_DEFAULT	= EMD_FEAT_ADDR | EMD_FEAT_ALTS | EMD_FEAT_IOARGS,
 };
 
-#define EMD_FEAT_ALL (EMD_FEAT_ADDR | EMD_FEAT_LMNEMO | EMD_FEAT_ALTS | EMD_FEAT_IOARGS)
-#define EMD_FEAT_DEFAULTS (EMD_FEAT_ADDR | EMD_FEAT_ALTS | EMD_FEAT_IOARGS)
+// errors
 
-#define EMD_TAB_LABEL 8
-#define EMD_TAB_MNEMO 20
-#define EMD_TAB_ARG 26
-#define EMD_TAB_ALT 50
-#define EMD_TAB_MAX 120
+enum emdas_errors {
+	EMD_E_UNKNOWN = -32000,
+	EMD_E_ALLOC,
+	EMD_E_ISET_UNKNOWN,
+	EMD_E_GETFUN_MISSING,
+	EMD_E_FEATURE_UNKNOWN,
+	EMD_E_TABS_MISPLACED,
+	EMD_E_MEM_BLOCK,
 
-// getter function
+	EMD_E_OK = 0
+};
+
+extern int emdas_error;
 
 typedef int (*emdas_getfun)(int nb, uint16_t addr, uint16_t *dest);
 
-// emdas object
-
-struct emdas {
-	struct emdas_op *ops;
-
-	emdas_getfun memget;
-	struct emdas_buf *dbuf;
-
-	unsigned features;
-	struct tabs {
-		unsigned label;
-		unsigned mnemo;
-		unsigned arg;
-		unsigned alt;
-	} tabs;
-
-	struct emdas_dh_table *cellinfo[16];
-};
+struct emdas;
 
 struct emdas *emdas_create(int iset_type, emdas_getfun getfun);
 void emdas_destroy(struct emdas *emd);
@@ -80,6 +76,12 @@ int emdas_get_linecnt(struct emdas *emd);
 
 int emdas_dasm(struct emdas *emd, unsigned nb, uint16_t addr);
 int emdas_analyze(struct emdas *emd, unsigned nb, uint16_t addr, unsigned size);
+
+char * emdas_get_error(int e);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

@@ -22,8 +22,35 @@
 #include <emawp.h>
 
 #include "emdas.h"
-#include "emdas/errors.h"
+#include "buf.h"
+#include "dh.h"
+#include "iset.h"
 #include "opfields.h"
+
+#define EMD_DASM_BUF_SIZE 4096
+
+#define EMD_TAB_LABEL 8
+#define EMD_TAB_MNEMO 20
+#define EMD_TAB_ARG 26
+#define EMD_TAB_ALT 50
+#define EMD_TAB_MAX 120
+
+struct emdas {
+	struct emdas_op *ops;
+
+	emdas_getfun memget;
+	struct emdas_buf *dbuf;
+
+	unsigned features;
+	struct tabs {
+		unsigned label;
+		unsigned mnemo;
+		unsigned arg;
+		unsigned alt;
+	} tabs;
+
+	struct emdas_dh_table *cellinfo[16];
+};
 
 // -----------------------------------------------------------------------
 struct emdas *emdas_create(int iset_type, emdas_getfun getfun)
@@ -56,7 +83,7 @@ struct emdas *emdas_create(int iset_type, emdas_getfun getfun)
 	}
 
 	emd->memget = getfun;
-	emdas_set_features(emd, EMD_FEAT_DEFAULTS);
+	emdas_set_features(emd, EMD_FEAT_DEFAULT);
 	emdas_set_tabs(emd, EMD_TAB_LABEL, EMD_TAB_MNEMO, EMD_TAB_ARG, EMD_TAB_ALT);
 
 	return emd;
@@ -145,8 +172,6 @@ int emdas_set_tabs(struct emdas *emd, unsigned label, unsigned mnemo, unsigned a
 		emd->tabs.alt = alt;
 	}
 
-
-
 	return EMD_E_OK;
 }
 
@@ -155,7 +180,7 @@ char * emdas_get_buf(struct emdas *emd)
 {
 	assert(emd);
 
-	return emd->dbuf->buf;
+	return emdas_buf_getbuf(emd->dbuf);
 }
 
 // -----------------------------------------------------------------------
@@ -163,7 +188,7 @@ int emdas_get_linecnt(struct emdas *emd)
 {
 	assert(emd);
 
-	return emd->dbuf->lines;
+	return emdas_buf_getlines(emd->dbuf);
 }
 
 // -----------------------------------------------------------------------
@@ -285,7 +310,7 @@ static void emdas_print_op(struct emdas *emd, struct emdas_op *op, int as_data)
 {
 	int op_id = as_data ? EMD_OP_NONE : op->id;
 
-	int clen = emdas_buf_app(emd->dbuf, "%s", emdas_iset_mnemo[op_id]);
+	int clen = emdas_buf_app(emd->dbuf, "%s", emdas_iset_get_mneno(op_id));
 	if (emd->features & EMD_FEAT_LMNEMO) {
 		emdas_buf_tolower(emd->dbuf, clen);
 	}

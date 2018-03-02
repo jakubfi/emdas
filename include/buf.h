@@ -18,14 +18,7 @@
 #ifndef EMDAS_BUF_H
 #define EMDAS_BUF_H
 
-struct emdas_buf {
-	char *buf;
-	int len;
-	int pos;
-	int lpos;
-	int lines;
-	char nl;
-};
+struct emdas_buf;
 
 struct emdas_buf * emdas_buf_create(unsigned len);
 void emdas_buf_destroy(struct emdas_buf *buf);
@@ -38,6 +31,9 @@ int emdas_buf_app(struct emdas_buf *buf, const char *fmt, ...);
 int emdas_buf_c(struct emdas_buf *buf, char c);
 int emdas_buf_tab(struct emdas_buf *buf, unsigned tab);
 int emdas_buf_tolower(struct emdas_buf *buf, unsigned back);
+
+char * emdas_buf_getbuf(struct emdas_buf *buf);
+int emdas_buf_getlines(struct emdas_buf *buf);
 
 #endif
 

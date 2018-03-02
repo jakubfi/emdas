@@ -18,8 +18,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "emdas/errors.h"
-#include "emdas/dh.h"
+#include "emdas.h"
+#include "dh.h"
 
 char *emdas_lab_types[] = { "none", "jmp", "call", "iono", "ioen", "iook", "iope", "byte", "word", "dword", "float", "word7" };
 

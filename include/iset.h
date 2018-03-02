@@ -18,13 +18,6 @@
 #ifndef EMDAS_ISET_H
 #define EMDAS_ISET_H
 
-// handled instruction sets
-
-enum emdas_iset_type {
-	EMD_ISET_MERA400,
-	EMD_ISET_MX16,
-};
-
 // opcode identifiers (opcode name indexes)
 
 enum emdas_op_ids {
@@ -49,8 +42,6 @@ enum emdas_op_ids {
 			EMD_OP_MAX
 };
 
-extern char *emdas_iset_mnemo[EMD_OP_MAX];
-
 // cell flags
 
 enum emdas_flags {
@@ -70,7 +61,7 @@ enum emdas_flags {
 	EMD_FL_ARG_SHORT8	= 1 << 8,	// 8-bit short argument is present
 	EMD_FL_ARG_RELATIVE	= 1 << 9,	// short argument is PC-relative
 	EMD_FL_ARG_NORM		= 1 << 10,	// normal argument is present
-	EMD_FL_ARG_FLAGS	= 1 << 11,	// argument may reffer to CPU flags
+	EMD_FL_ARG_FLAGS	= 1 << 11,	// argument may refer to CPU flags
 
 	// normarg flags
 	EMD_FL_2WORD		= 1 << 12,	// normal argument uses additional word (rC=0)
@@ -103,6 +94,7 @@ struct emdas_op {
 
 struct emdas_op * emdas_iset_create(int type);
 void emdas_iset_destroy(struct emdas_op *op_tab);
+char * emdas_iset_get_mneno(int i);
 
 #endif
 

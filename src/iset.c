@@ -19,8 +19,8 @@
 #include <inttypes.h>
 #include <assert.h>
 
-#include "emdas/iset.h"
-#include "emdas/errors.h"
+#include "emdas.h"
+#include "iset.h"
 #include "opfields.h"
 
 char *emdas_iset_mnemo[EMD_OP_MAX] = {
@@ -323,6 +323,12 @@ struct emdas_op * emdas_iset_create(int type)
 void emdas_iset_destroy(struct emdas_op *op_tab)
 {
 	free(op_tab);
+}
+
+// -----------------------------------------------------------------------
+char * emdas_iset_get_mneno(int i)
+{
+	return emdas_iset_mnemo[i];
 }
 
 // vim: tabstop=4 shiftwidth=4 autoindent
