@@ -431,7 +431,7 @@ static int emdas_print(struct emdas *emd, unsigned nb, uint16_t addr, int as_dat
 
 	// deopcodize strange ops (but leave op as it is, because we still
 	// want to print an alternative
-	if ((op->flags & EMD_FL_OP_STRANGE)) {
+	if ((op->flags & EMD_FL_INS_STRANGE)) {
 		as_data = 1;
 	}
 
@@ -561,7 +561,7 @@ int emdas_analyze(struct emdas *emd, unsigned nb, uint16_t addr, unsigned size)
 		op = emd->ops + vop;
 
 		// do nothing for suspicious ops
-		if (FMATCH(op->flags, EMD_FL_OP_STRANGE)) {
+		if (FMATCH(op->flags, EMD_FL_INS_STRANGE)) {
 			ic++;
 			continue;
 		}

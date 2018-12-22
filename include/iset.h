@@ -51,22 +51,25 @@ enum emdas_flags {
 	EMD_FL_INS_OS		= 1 << 0,	// instruction is user-illegal (OS level only)
 	EMD_FL_INS_IO		= 1 << 1,	// I/O instruction
 	EMD_FL_INS_MX16		= 1 << 2,	// additional MX-16 instruction
+	EMD_FL_INS_STRANGE	= 1 << 3,	// instruction is valid (would execute just fine) but suspicious (assembler would not encode it that way)
 
 	// argument flags
-	EMD_FL_ARG_NONE		= 1 << 3,	// no arguments
-	EMD_FL_ARG_REG		= 1 << 4,	// rA register argument is present
-	EMD_FL_ARG_REGIND	= 1 << 5,	// rA register indirect addressing
-	EMD_FL_ARG_SHORT4	= 1 << 6,	// 4-bit short argument is present (SHC only)
-	EMD_FL_ARG_SHORT7	= 1 << 7,	// 7-bit short argument is present
-	EMD_FL_ARG_SHORT8	= 1 << 8,	// 8-bit short argument is present
-	EMD_FL_ARG_RELATIVE	= 1 << 9,	// short argument is PC-relative
-	EMD_FL_ARG_NORM		= 1 << 10,	// normal argument is present
-	EMD_FL_ARG_FLAGS	= 1 << 11,	// argument may refer to CPU flags
+	EMD_FL_ARG_NONE		= 1 << 4,	// no arguments
+	EMD_FL_ARG_REG		= 1 << 5,	// rA register argument is present
+	EMD_FL_ARG_REGIND	= 1 << 6,	// rA register indirect addressing
+	EMD_FL_ARG_SHORT4	= 1 << 7,	// 4-bit short argument is present (SHC only)
+	EMD_FL_ARG_SHORT7	= 1 << 8,	// 7-bit short argument is present
+	EMD_FL_ARG_SHORT8	= 1 << 9,	// 8-bit short argument is present
+	EMD_FL_ARG_SHORT	= EMD_FL_ARG_SHORT4 | EMD_FL_ARG_SHORT7 | EMD_FL_ARG_SHORT8, // any short argument
+	EMD_FL_ARG_RELATIVE	= 1 << 10,	// short argument is PC-relative
+	EMD_FL_ARG_NORM		= 1 << 11,	// normal argument is present
+	EMD_FL_ARG2			= EMD_FL_ARG_SHORT | EMD_FL_ARG_NORM, // any 2nd argument
+	EMD_FL_ARG_FLAGS	= 1 << 12,	// argument may refer to CPU flags
 
 	// normarg flags
-	EMD_FL_2WORD		= 1 << 12,	// normal argument uses additional word (rC=0)
-	EMD_FL_MOD_D		= 1 << 13,	// normal argument is D-modified
-	EMD_FL_MOD_B		= 1 << 14,	// normal argument is B-modified
+	EMD_FL_2WORD		= 1 << 13,	// normal argument uses additional word (rC=0)
+	EMD_FL_MOD_D		= 1 << 14,	// normal argument is D-modified
+	EMD_FL_MOD_B		= 1 << 15,	// normal argument is B-modified
 
 	// normarg address flags
 	EMD_FL_ADDR_JUMP	= 1 << 16,	// argument is a jump address
@@ -76,12 +79,8 @@ enum emdas_flags {
 	EMD_FL_ADDR_DWORD	= 1 << 20,	// argument is a dword address
 	EMD_FL_ADDR_FLOAT	= 1 << 21,	// argument is a float address
 	EMD_FL_ADDR_WORD7	= 1 << 22,	// argument is a a 7-word
-
-	// suspicious activity
-	EMD_FL_OP_STRANGE	= 1 << 23,	// opcode is valid, but suspicious
 };
 
-#define EMD_FL_ARG2 (EMD_FL_ARG_SHORT4 | EMD_FL_ARG_SHORT7 | EMD_FL_ARG_SHORT8 | EMD_FL_ARG_NORM)
 #define FMATCH(v, flags)  (((v) & (flags)) == (flags))
 #define FNMATCH(v, flags) (((v) & (flags)) == 0)
 
