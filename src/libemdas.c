@@ -577,7 +577,7 @@ int emdas_analyze(struct emdas *emd, unsigned nb, uint16_t addr, unsigned size)
 		//  * at [X] we have value Y, which is a float address (Y is variable)
 		//  * it may happen, that value Y also resolves as opcode that references another cell
 		if (FMATCH(op->flags, EMD_FL_2WORD | EMD_FL_MOD_D)) {
-			if (FNMATCH(op->flags, EMD_FL_MOD_B | EMD_FL_MOD_PRE)) {
+			if (FNMATCH(op->flags, EMD_FL_MOD_B)) {
 				ref_ic = ic+1;
 				int has_varg = emd->memget(nb, ref_ic, &varg);
 				if (has_varg && (varg >= addr) && (varg < addr+size)) {
@@ -617,9 +617,9 @@ int emdas_analyze(struct emdas *emd, unsigned nb, uint16_t addr, unsigned size)
 				laddr = (uint16_t) (ref_ic + 1 + _T(vop));
 			// ...long, norm-arg, absolute
 			} else if (op->flags & EMD_FL_2WORD) {
-				// Make sure there is no pre- nor B-modification.
+				// Make sure there is no B-modification.
 				// also, D-modified arguments have been handled earlier
-				if (FNMATCH(op->flags, EMD_FL_MOD_D | EMD_FL_MOD_B | EMD_FL_MOD_PRE)) {
+				if (FNMATCH(op->flags, EMD_FL_MOD_D | EMD_FL_MOD_B)) {
 					ref_ic = ic+1;
 					if (emd->memget(nb, ref_ic, &varg)) {
 						laddr = varg;

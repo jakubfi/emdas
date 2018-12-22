@@ -67,7 +67,6 @@ enum emdas_flags {
 	EMD_FL_2WORD		= 1 << 12,	// normal argument uses additional word (rC=0)
 	EMD_FL_MOD_D		= 1 << 13,	// normal argument is D-modified
 	EMD_FL_MOD_B		= 1 << 14,	// normal argument is B-modified
-	EMD_FL_MOD_PRE		= 1 << 15,	// instruction is premodified
 
 	// normarg address flags
 	EMD_FL_ADDR_JUMP	= 1 << 16,	// argument is a jump address

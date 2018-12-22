@@ -1,0 +1,16 @@
+".res 0" w miejscu skoku LJ
+składanie bloków powtórzonych danych do ".res x, y"
+wybór sposobu printowania stałych (różne argumenty (hlt, shc, ...), adresy, dane, ...)
+wydzielić i zunifikować z emulatorem listę rozkazów i generator
+wydzielić nagłówek do operacji na polach opkodów?
+rename symbol (+trzymać referencje przy labelu)
+collapse to .res
+collapse to .word x,y,z,...
+switch to data/code
+data, datau, addres, code
+wyraźnie wydzielić fazy analizy (dasm) i printowania (getcode)
+
+setup_analyzer()
+setup_printer()
+dasm(nb, addr, lines) : lines_deassembled
+getcode(nb, addr) : next_addr
