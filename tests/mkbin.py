@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import sys
 import struct
@@ -22,11 +22,12 @@ sets = {
 
 # ------------------------------------------------------------------------
 def usage(s):
-    print s
-    print "Usage: %s <set>" % sys.argv[0]
-    print "Known sets: ",
+    print(s)
+    print("Usage: %s <set>" % sys.argv[0])
+    print("Known sets: ", end="")
     for i in sets.keys():
-        print i,
+        print(i, " ", end="")
+    print()
 
 # ------------------------------------------------------------------------
 # ---- MAIN --------------------------------------------------------------
@@ -45,7 +46,7 @@ except:
     usage("Unknown set: %s" % out)
     sys.exit(1)
 
-f = open(out, "w")
+f = open(out, "wb")
 for i in range(op_start, op_stop):
     f.write(struct.pack(">H", i))
 f.close();
