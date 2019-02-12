@@ -287,7 +287,10 @@ static void emdas_iset_register_op(struct emdas_op *op_tab, uint16_t opcode, uin
 
 		// check for argument that reffers to cpuflags
 		// (instruction is a bit-branch and register is r0)
-		if ((dop->id >= EMD_OP_BB) && (dop->id <= EMD_OP_BN) && (_A(dopcode) == 0)) {
+		if (
+			(((dop->id >= EMD_OP_BB) && (dop->id <= EMD_OP_BN)) || ((dop->id == EMD_OP_CW) || (dop->id == EMD_OP_CL)))
+			&& (_A(dopcode) == 0)
+		) {
 			dop->flags |= EMD_FL_ARG_FLAGS;
 		}
 	}
