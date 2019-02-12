@@ -3,7 +3,7 @@
 TESTS="ill.bin na1.bin fd.bin na2.bin ka1.bin js.bin ka2.bin c.bin s.bin j.bin l.bin g.bin bn.bin all.bin"
 
 EMAS=../../emas/build/emas
-EMDAS=../build/src/emdas
+EMDAS=../build/emdas
 
 for TEST in $TESTS ; do
 	echo Processing test: $TEST
