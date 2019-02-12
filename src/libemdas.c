@@ -311,8 +311,8 @@ static void emdas_print_op(struct emdas *emd, struct emdas_op *op, int as_data)
 	int op_id = as_data ? EMD_OP_NONE : op->id;
 
 	int clen = emdas_buf_app(emd->dbuf, "%s", emdas_iset_get_mneno(op_id));
-	if (emd->features & EMD_FEAT_LMNEMO) {
-		emdas_buf_tolower(emd->dbuf, clen);
+	if (emd->features & EMD_FEAT_UMNEMO) {
+		emdas_buf_toupper(emd->dbuf, clen);
 	}
 }
 

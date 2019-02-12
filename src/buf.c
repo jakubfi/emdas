@@ -187,14 +187,14 @@ int emdas_buf_tab(struct emdas_buf *buf, unsigned tab)
 }
 
 // -----------------------------------------------------------------------
-int emdas_buf_tolower(struct emdas_buf *buf, unsigned back)
+int emdas_buf_toupper(struct emdas_buf *buf, unsigned back)
 {
 	assert(buf);
 
 	int clen = 0;
 
 	while (clen < back) {
-		buf->buf[buf->pos - (clen+1)] = tolower(buf->buf[buf->pos - (clen+1)]);
+		buf->buf[buf->pos - (clen+1)] = toupper(buf->buf[buf->pos - (clen+1)]);
 		clen++;
 	}
 

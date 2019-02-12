@@ -25,23 +25,23 @@
 
 char *emdas_iset_mnemo[EMD_OP_MAX] = {
 			".word",
-/* NORM */	"LW", "TW", "LS", "RI", "RW", "PW", "RJ", "IS",
-			"BB", "BM", "BS", "BC", "BN", "OU", "IN",
-/* F/D */	"AD", "SD", "MW", "DW", "AF", "SF", "MF", "DF",
-/* NORM */	"AW", "AC", "SW", "CW", "OR", "OM", "NR", "NM",
-			"ER", "EM", "XR", "XM", "CL", "LB", "RB", "CB",
-/* KA1 */	"AWT", "TRB", "IRB", "DRB", "CWT", "LWT", "LWS", "RWS",
-/* JS */	"UJS", "NOP", "JLS", "JES", "JGS", "JVS", "JXS", "JYS", "JCS",
-/* KA2 */	"BLC", "EXL", "BRC", "NRF",
-/* C */		"RIC", "ZLB", "SXU", "NGA", "SLZ", "SLY", "SLX", "SRY", "NGL", "RPC",
-			"SHC",
-			"RKY", "ZRB", "SXL", "NGC", "SVZ", "SVY", "SVX", "SRX", "SRZ", "LPC",
-/* S */		"HLT", "MCL", "CIT", "SIL", "SIU", "SIT", "GIU", "LIP", "GIL",
-			"CRON", "SINT", "SIND",
-/* J */		"UJ", "JL", "JE", "JG", "JZ", "JM", "JN", "LJ",
-/* L */		"LD", "LF", "LA", "LL", "TD", "TF", "TA", "TL",
-/* G */		"RD", "RF", "RA", "RL", "PD", "PF", "PA", "PL",
-/* B/N */	"MB", "IM", "KI", "FI", "SP", "MD", "RZ", "IB"
+/* NORM */	"lw", "tw", "ls", "ri", "rw", "pw", "rj", "is",
+			"bb", "bm", "bs", "bc", "bn", "ou", "in",
+/* F/D */	"ad", "sd", "mw", "dw", "af", "sf", "mf", "df",
+/* NORM */	"aw", "ac", "sw", "cw", "or", "om", "nr", "nm",
+			"er", "em", "xr", "xm", "cl", "lb", "rb", "cb",
+/* KA1 */	"awt", "trb", "irb", "drb", "cwt", "lwt", "lws", "rws",
+/* JS */	"ujs", "nop", "jls", "jes", "jgs", "jvs", "jxs", "jys", "jcs",
+/* KA2 */	"blc", "exl", "brc", "nrf",
+/* C */		"ric", "zlb", "sxu", "nga", "slz", "sly", "slx", "sry", "ngl", "rpc",
+			"shc",
+			"rky", "zrb", "sxl", "ngc", "svz", "svy", "svx", "srx", "srz", "lpc",
+/* S */		"hlt", "mcl", "cit", "sil", "siu", "sit", "giu", "lip", "gil",
+			"cron", "sint", "sind",
+/* J */		"uj", "jl", "je", "jg", "jz", "jm", "jn", "lj",
+/* L */		"ld", "lf", "la", "ll", "td", "tf", "ta", "tl",
+/* G */		"rd", "rf", "ra", "rl", "pd", "pf", "pa", "pl",
+/* B/N */	"mb", "im", "ki", "fi", "sp", "md", "rz", "ib"
 };
 
 // varmasks tell which bits contain variable instruction elements

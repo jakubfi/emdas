@@ -30,7 +30,7 @@ int emdas_buf_nl(struct emdas_buf *buf);
 int emdas_buf_app(struct emdas_buf *buf, const char *fmt, ...);
 int emdas_buf_c(struct emdas_buf *buf, char c);
 int emdas_buf_tab(struct emdas_buf *buf, unsigned tab);
-int emdas_buf_tolower(struct emdas_buf *buf, unsigned back);
+int emdas_buf_toupper(struct emdas_buf *buf, unsigned back);
 
 char * emdas_buf_getbuf(struct emdas_buf *buf);
 int emdas_buf_getlines(struct emdas_buf *buf);

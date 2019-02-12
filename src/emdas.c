@@ -35,7 +35,7 @@ char *input_file;
 char *output_file;
 
 int iset = EMD_ISET_MERA400;
-int features = EMD_FEAT_ALL & ~EMD_FEAT_LMNEMO;
+int features = EMD_FEAT_DEFAULT;
 int use_labels = 1;
 int base_addr;
 int bin_size;
@@ -57,7 +57,7 @@ void usage()
 		"   -o <output> : specify output file (stdout otherwise)\n"
 		"   -c <cpu>    : set CPU type: mera400, mx16 (default is mera400)\n"
 		"   -a <addr>   : set base address\n"
-		"   -l          : use lowercase mnemonics\n"
+		"   -u          : use uppercase mnemonics\n"
 		"   -na         : do not print adresses\n"
 		"   -nc         : do not print alternatives in comments\n"
 		"   -nl         : do not assign labels\n"
@@ -72,7 +72,7 @@ int parse_args(int argc, char **argv)
 	char *oa;
 	int option;
 
-	while ((option = getopt(argc, argv,"c:lo:n:a:vh")) != -1) {
+	while ((option = getopt(argc, argv,"c:uo:n:a:vh")) != -1) {
 		switch (option) {
 			case 'c':
 				if (!strcmp(optarg, "mera400")) {
@@ -84,8 +84,8 @@ int parse_args(int argc, char **argv)
 					return -1;
 				}
 				break;
-			case 'l':
-				features |= EMD_FEAT_LMNEMO;
+			case 'u':
+				features |= EMD_FEAT_UMNEMO;
 				break;
 			case 'n':
 				oa = optarg;

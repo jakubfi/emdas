@@ -36,10 +36,10 @@ enum emdas_iset_type {
 enum emdas_features {
 	EMD_FEAT_NONE		= 0,		// all features off
 	EMD_FEAT_ADDR		= 1 << 0,	// print addresses
-	EMD_FEAT_LMNEMO		= 1 << 1,	// use lowercase mnemonics
+	EMD_FEAT_UMNEMO		= 1 << 1,	// use uppercase mnemonics
 	EMD_FEAT_ALTS		= 1 << 2,	// print alternatives in comments
 	EMD_FEAT_IOARGS		= 1 << 3,	// print IN/OU return addresses as instruction arguments
-	EMD_FEAT_ALL		= EMD_FEAT_ADDR | EMD_FEAT_LMNEMO | EMD_FEAT_ALTS | EMD_FEAT_IOARGS,
+	EMD_FEAT_ALL		= EMD_FEAT_ADDR | EMD_FEAT_UMNEMO | EMD_FEAT_ALTS | EMD_FEAT_IOARGS,
 	EMD_FEAT_DEFAULT	= EMD_FEAT_ADDR | EMD_FEAT_ALTS | EMD_FEAT_IOARGS,
 };
 
