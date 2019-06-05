@@ -22,7 +22,7 @@ script:
 - cmake --build $BUILD_DIR -- -j2 VERBOSE=1
 - cmake --build $BUILD_DIR --target install -- -j2 VERBOSE=1
 - find $INSTALL_DIR -ls
-- cd tests
+- cd $TRAVIS_BUILD_DIR/tests
 - ./runtests.sh
 
 # vim: tabstop=2 expandtab shiftwidth=2 softtabstop=2
