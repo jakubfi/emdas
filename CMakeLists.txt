@@ -32,8 +32,8 @@ add_library(emdas-lib SHARED
 )
 
 set_property(TARGET emdas-lib PROPERTY C_STANDARD 99)
-target_include_directories(emdas-lib INTERFACE SYSTEM ${EMAWP_INCLUDE_DIRS})
-target_include_directories(emdas-lib INTERFACE SYSTEM ${EMELF_INCLUDE_DIRS})
+target_include_directories(emdas-lib PUBLIC SYSTEM ${EMAWP_INCLUDE_DIRS})
+target_include_directories(emdas-lib PUBLIC SYSTEM ${EMELF_INCLUDE_DIRS})
 target_include_directories(emdas-lib PRIVATE ${CMAKE_SOURCE_DIR}/include)
 target_compile_definitions(emdas-lib PRIVATE EMDAS_VERSION="${APP_VERSION}")
 target_compile_options(emdas-lib PUBLIC -Wall)
