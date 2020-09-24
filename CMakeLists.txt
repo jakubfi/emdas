@@ -9,7 +9,7 @@ include(appversion.cmake)
 # ---- Libraries ---------------------------------------------------------
 
 find_package(emelf REQUIRED)
-find_package(emawp REQUIRED)
+find_package(emawp 2.0 REQUIRED)
 
 # ---- Sources -----------------------------------------------------------
 

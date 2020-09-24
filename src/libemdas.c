@@ -367,16 +367,16 @@ static int emdas_print_label(struct emdas *emd, unsigned nb, uint16_t addr)
 // -----------------------------------------------------------------------
 static void emdas_print_float(struct emdas *emd, unsigned nb, uint16_t addr)
 {
-	uint16_t r1, r2, r3;
+	uint16_t r[4];
 	double f;
 	int cnt = 0;
 
-	cnt += emd->memget(nb, addr, &r1);
-	cnt += emd->memget(nb, addr+1, &r2);
-	cnt += emd->memget(nb, addr+2, &r3);
+	cnt += emd->memget(nb, addr, r+1);
+	cnt += emd->memget(nb, addr+1, r+2);
+	cnt += emd->memget(nb, addr+2, r+3);
 
 	if (cnt == 3) {
-		awp_to_double(&f, r1, r2, r3);
+		awp_to_double(r, &f);
 		emdas_buf_app(emd->dbuf, "; .float %f", f);
 	}
 }
