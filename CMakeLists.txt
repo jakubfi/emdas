@@ -8,7 +8,6 @@ include(appversion.cmake)
 
 # ---- Libraries ---------------------------------------------------------
 
-find_package(emelf REQUIRED)
 find_package(emawp 3.0 REQUIRED)
 
 # ---- Sources -----------------------------------------------------------
@@ -33,7 +32,6 @@ add_library(emdas-lib SHARED
 
 set_property(TARGET emdas-lib PROPERTY C_STANDARD 99)
 target_include_directories(emdas-lib PUBLIC SYSTEM ${EMAWP_INCLUDE_DIRS})
-target_include_directories(emdas-lib PUBLIC SYSTEM ${EMELF_INCLUDE_DIRS})
 target_include_directories(emdas-lib PRIVATE ${CMAKE_SOURCE_DIR}/include)
 target_compile_definitions(emdas-lib PRIVATE EMDAS_VERSION="${APP_VERSION}")
 target_compile_options(emdas-lib PUBLIC -Wall)
@@ -52,7 +50,6 @@ set_target_properties(emdas-lib PROPERTIES
 
 target_link_libraries(emdas-lib
 	${EMAWP_LIBRARIES}
-	${EMELF_LIBRARIES}
 )
 
 install(TARGETS emdas-lib
@@ -92,7 +89,6 @@ target_compile_options(emdas PUBLIC -Wall)
 
 target_link_libraries(emdas
 	emdas-lib
-   	${EMELF_LIBRARIES}
 )
 
 install(TARGETS emdas

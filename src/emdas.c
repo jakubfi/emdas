@@ -22,7 +22,6 @@
 #include <arpa/inet.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <emelf.h>
 
 #include "emdas.h"
 
@@ -148,7 +147,6 @@ int main(int argc, char **argv)
 	int res;
 	int ret = -1;
 	struct emdas *emd = NULL;
-	struct emelf *e = NULL;
 	struct stat sb;
 
 	res = parse_args(argc, argv);
@@ -189,24 +187,16 @@ int main(int argc, char **argv)
 		goto cleanup;
 	}
 
-	// try as emelf first
-	e = emelf_load(fi);
-
-	if (e) {
-		bin_size = e->image_size;
-		mem = e->image;
-	} else {
-		mem = calloc(0x10000, sizeof(uint16_t));
-		if (!mem) {
-			fclose(fi);
-			fprintf(stderr, "Memory allocation error\n");
-			goto cleanup;
-		}
-		rewind(fi);
-		bin_size = fread(mem+base_addr, sizeof(uint16_t), 0x10000-base_addr, fi);
-		for (int i=base_addr ; i<base_addr+bin_size ; i++) {
-			mem[i] = ntohs(mem[i]);
-		}
+	mem = calloc(0x10000, sizeof(uint16_t));
+	if (!mem) {
+		fclose(fi);
+		fprintf(stderr, "Memory allocation error\n");
+		goto cleanup;
+	}
+	rewind(fi);
+	bin_size = fread(mem+base_addr, sizeof(uint16_t), 0x10000-base_addr, fi);
+	for (int i=base_addr ; i<base_addr+bin_size ; i++) {
+		mem[i] = ntohs(mem[i]);
 	}
 
 	if (bin_size < 0) {
@@ -256,8 +246,7 @@ int main(int argc, char **argv)
 	ret = 0;
 
 cleanup:
-	if (e) emelf_destroy(e);
-	else free(mem);
+	free(mem);
 	emdas_destroy(emd);
 	free(output_file);
 	return ret;
