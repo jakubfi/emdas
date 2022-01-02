@@ -42,12 +42,6 @@ set_target_properties(emdas-lib PROPERTIES
 	PUBLIC_HEADER "${CMAKE_SOURCE_DIR}/include/emdas.h"
 )
 
-set_target_properties(emdas-lib PROPERTIES
-	OUTPUT_NAME "emdas"
-	SOVERSION ${APP_VERSION_MAJOR}.${APP_VERSION_MINOR}
-	PUBLIC_HEADER "${CMAKE_SOURCE_DIR}/include/emdas.h"
-)
-
 target_link_libraries(emdas-lib
 	${EMAWP_LIBRARIES}
 )
