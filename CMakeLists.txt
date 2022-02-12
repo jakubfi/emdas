@@ -1,91 +1,104 @@
 cmake_minimum_required(VERSION 3.0)
 project(emdas
+	DESCRIPTION "MERA-400 binaries disassembler"
 	LANGUAGES C
 )
 
 include(GNUInstallDirs)
-include(appversion.cmake)
+include(cmake/appversion.cmake)
 
-# ---- Libraries ---------------------------------------------------------
-
-find_package(emawp 3.0 REQUIRED)
-
-# ---- Sources -----------------------------------------------------------
-
-set(SOURCES_EMDAS_LIB
-	src/iset.c
-	src/buf.c
-	src/dh.c
-	src/errors.c
-	src/libemdas.c
-)
-
-set(SOURCES_EMDAS
-	src/emdas.c
-)
+include_directories(${CMAKE_SOURCE_DIR}/include)
+add_compile_options(-Wall)
 
 # ---- Target: emdas-lib -------------------------------------------------
 
-add_library(emdas-lib SHARED
-	${SOURCES_EMDAS_LIB}
+find_package(emawp 3.0 REQUIRED)
+
+set(EMDAS_PUBLIC_HEADERS
+	include/emdas.h
 )
 
-set_property(TARGET emdas-lib PROPERTY C_STANDARD 99)
-target_include_directories(emdas-lib PRIVATE ${CMAKE_SOURCE_DIR}/include)
-target_compile_definitions(emdas-lib PRIVATE EMDAS_VERSION="${APP_VERSION}")
-target_compile_options(emdas-lib PUBLIC -Wall)
-
-set_target_properties(emdas-lib PROPERTIES
-	OUTPUT_NAME "emdas"
-	SOVERSION ${APP_VERSION_MAJOR}.${APP_VERSION_MINOR}
-	PUBLIC_HEADER "${CMAKE_SOURCE_DIR}/include/emdas.h"
+add_library(emdas-lib SHARED
+	src/iset.c
+	src/iset.h
+	src/buf.c
+	src/buf.h
+	src/dh.c
+	src/dh.h
+	src/errors.c
+	src/libemdas.c
+	src/opfields.h
+	${EMDAS_PUBLIC_HEADERS}
 )
 
 target_link_libraries(emdas-lib
 	emawp
 )
 
+set_target_properties(emdas-lib PROPERTIES
+	C_STANDARD 99
+	OUTPUT_NAME "emdas"
+	SOVERSION ${APP_VERSION_MAJOR}.${APP_VERSION_MINOR}
+	PUBLIC_HEADER "${EMDAS_PUBLIC_HEADERS}"
+)
+
+target_compile_definitions(emdas-lib PRIVATE EMDAS_VERSION="${APP_VERSION}")
+
 install(TARGETS emdas-lib
+	EXPORT emdasLibTarget
 	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 	PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 
 configure_file(
-	emdas-config.cmake.in
+	cmake/emdas-config.cmake.in
 	${PROJECT_BINARY_DIR}/emdas-config.cmake
 	@ONLY
 )
 
-configure_file(
-	emdas-config-version.cmake.in
-	${PROJECT_BINARY_DIR}/emdas-config-version.cmake
-	@ONLY
+include(CMakePackageConfigHelpers)
+write_basic_package_version_file(
+	"${CMAKE_CURRENT_BINARY_DIR}/emdas-config-version.cmake"
+	VERSION ${APP_VERSION}
+	COMPATIBILITY AnyNewerVersion
+)
+
+export(
+	EXPORT emdasLibTarget
+	FILE "${CMAKE_CURRENT_BINARY_DIR}/emdas-config-targets.cmake"
+)
+
+set(ConfigPackageLocation ${CMAKE_INSTALL_LIBDIR}/cmake/emdas)
+configure_package_config_file(cmake/emdas-config.cmake.in
+	"${CMAKE_CURRENT_BINARY_DIR}/emdas-config.cmake"
+	INSTALL_DESTINATION ${ConfigPackageLocation}
+	NO_SET_AND_CHECK_MACRO
+	NO_CHECK_REQUIRED_COMPONENTS_MACRO
+)
+
+install(EXPORT emdasLibTarget
+	FILE emdas-config-targets.cmake
+	DESTINATION ${ConfigPackageLocation}
 )
 
 install(FILES
-	${PROJECT_BINARY_DIR}/emdas-config.cmake
-	${PROJECT_BINARY_DIR}/emdas-config-version.cmake
-	DESTINATION ${CMAKE_INSTALL_LIBDIR}/emdas
-	COMPONENT dev
+	"${CMAKE_CURRENT_BINARY_DIR}/emdas-config.cmake"
+	"${CMAKE_CURRENT_BINARY_DIR}/emdas-config-version.cmake"
+	DESTINATION ${ConfigPackageLocation}
+	COMPONENT Devel
 )
 
 # ---- Target: emdas -----------------------------------------------------
 
 add_executable(emdas
-	${SOURCES_EMDAS}
+	src/emdas.c
 )
+
+target_link_libraries(emdas emdas-lib)
 
 set_property(TARGET emdas PROPERTY C_STANDARD 99)
-target_include_directories(emdas PRIVATE ${CMAKE_SOURCE_DIR}/include)
 target_compile_definitions(emdas PRIVATE EMDAS_VERSION="${APP_VERSION}")
-target_compile_options(emdas PUBLIC -Wall)
-
-target_link_libraries(emdas
-	emdas-lib
-)
-
-install(TARGETS emdas
-	RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-)
+install(TARGETS emdas RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 # vim: tabstop=4
