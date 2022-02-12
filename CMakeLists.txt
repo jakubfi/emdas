@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.4)
+cmake_minimum_required(VERSION 3.0)
 project(emdas
 	LANGUAGES C
 )
@@ -31,7 +31,6 @@ add_library(emdas-lib SHARED
 )
 
 set_property(TARGET emdas-lib PROPERTY C_STANDARD 99)
-target_include_directories(emdas-lib PUBLIC SYSTEM ${EMAWP_INCLUDE_DIRS})
 target_include_directories(emdas-lib PRIVATE ${CMAKE_SOURCE_DIR}/include)
 target_compile_definitions(emdas-lib PRIVATE EMDAS_VERSION="${APP_VERSION}")
 target_compile_options(emdas-lib PUBLIC -Wall)
@@ -43,7 +42,7 @@ set_target_properties(emdas-lib PROPERTIES
 )
 
 target_link_libraries(emdas-lib
-	${EMAWP_LIBRARIES}
+	emawp
 )
 
 install(TARGETS emdas-lib
