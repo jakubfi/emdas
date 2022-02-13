@@ -34,6 +34,7 @@ case $ACTION in
 
 	test)
 		cd "$SRC_DIR"/tests
+		pwd
 		./runtests.sh
 	;;
 
