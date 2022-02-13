@@ -12,12 +12,14 @@ case $ACTION in
 		cmake emawp -G "Unix Makefiles" -B emawp/build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/mingw64
 		cmake --build emawp/build
 		cmake --install emawp/build
+		emawp -h
 		echo === Building EMAS ============================================
 		git clone https://github.com/jakubfi/emas
 		cmake -E make_directory emas/build
 		cmake emas -G "Unix Makefiles" -B emas/build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/mingw64
 		cmake --build emas/build
 		cmake --install emas/build
+		emas -v
 	;;
 
 	configure)
@@ -30,29 +32,11 @@ case $ACTION in
 
 	install)
 		cmake --install "$BUILD_DIR"
+		emdas -v
 	;;
 
 	test)
 		cd "$SRC_DIR"/tests
-		echo =============================================
-		pwd
-		echo =============================================
-		which emdas
-		echo =============================================
-		which emas
-		echo =============================================
-		emdas -v
-		echo =============================================
-		emas -v
-		echo =============================================
-		emdas -h
-		echo =============================================
-		emas -h
-		echo =============================================
-		find / -name \*emdas\*
-		echo =============================================
-		find / -name \*emas\*
-		echo =============================================
 		./runtests.sh
 	;;
 
