@@ -26,7 +26,7 @@ case $ACTION in
 	;;
 
 	test)
-		cd "$BUILD_DIR"/tests
+		cd "$SRC_DIR"/tests
 		./runtests.sh
 	;;
 
