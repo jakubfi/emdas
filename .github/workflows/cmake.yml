@@ -27,6 +27,8 @@ jobs:
         run: sudo apt-get -y install ${{matrix.compiler.packages}}
       - name: Build and install emawp
         run: git clone https://github.com/jakubfi/emawp && cd emawp && mkdir build && cd build && cmake .. && make && sudo make install && sudo ldconfig
+      - name: Build and install emas
+        run: git clone https://github.com/jakubfi/emas && cd emas && mkdir build && cd build && cmake .. && make && sudo make install
       - name: Configure project
         run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
       - name: Build
@@ -35,6 +37,7 @@ jobs:
         run: sudo cmake --install ${{github.workspace}}/build
 
   Win64-build:
+    if: ${{false}}
     name: Win64 build
     runs-on: windows-latest
     strategy:
@@ -70,3 +73,6 @@ jobs:
         run: ./.ci/ci-script.sh build
       - name: Install
         run: ./.ci/ci-script.sh install
+      - name: Run tests
+        working-directory: ${{github.workspace}}/tests
+        run: ./runtests.py
