@@ -40,7 +40,6 @@ jobs:
         run: ./runtests.sh
 
   Win64-build:
-    if: ${{false}}
     name: Win64 build
     runs-on: windows-latest
     strategy:
