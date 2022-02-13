@@ -31,9 +31,10 @@ add_library(emdas-lib SHARED
 	${EMDAS_PUBLIC_HEADERS}
 )
 
-target_link_libraries(emdas-lib
-	emawp
-)
+target_link_libraries(emdas-lib emawp)
+if(WIN32)
+target_link_libraries(emdas-lib ws2_32)
+endif(WIN32)
 
 set_target_properties(emdas-lib PROPERTIES
 	C_STANDARD 99

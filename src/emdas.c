@@ -19,7 +19,11 @@
 #include <stdio.h>
 #include <getopt.h>
 #include <string.h>
+#ifdef _WIN32
+#include <winsock2.h>
+#else
 #include <arpa/inet.h>
+#endif
 #include <sys/types.h>
 #include <sys/stat.h>
 
