@@ -75,3 +75,5 @@ jobs:
         run: ./.ci/ci-script.sh build
       - name: Install
         run: ./.ci/ci-script.sh install
+      - name: Test
+        run: ./.ci/ci-script.sh test

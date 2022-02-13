@@ -25,6 +25,11 @@ case $ACTION in
 		cmake --install "$BUILD_DIR"
 	;;
 
+	test)
+		cd "$BUILD_DIR"/tests
+		./runtests.sh
+	;;
+
 	*)
 		echo "Unknown action: $ACTION"
 		exit 1
