@@ -168,7 +168,7 @@ int main(int argc, char **argv)
 		fprintf(stderr, "Warning: File is bigger than available address space (%li bytes > %i words). Output will be truncated.\n", sb.st_size, 0x10000-base_addr);
 	}
 
-	fi = fopen(input_file, "r");
+	fi = fopen(input_file, "rb");
 	if (!fi) {
 		fprintf(stderr, "Cannot open input file '%s'.\n", input_file);
 		goto cleanup;
@@ -211,7 +211,7 @@ int main(int argc, char **argv)
 	fclose(fi);
 
 	if (output_file) {
-		fo = fopen(output_file, "w");
+		fo = fopen(output_file, "wb");
 	} else {
 		fo = stdout;
 	}
