@@ -55,7 +55,8 @@ void usage()
 {
 	version();
 	printf(
-		"Usage: emdas [options] input\n"
+		"Usage: emdas [options] [input_file]\n"
+		"If no input file is provided, stdin is used.\n"
 		"Where options are one or more of:\n"
 		"   -o <output> : specify output file (stdout otherwise)\n"
 		"   -c <cpu>    : set CPU type: mera400, mx16 (default is mera400)\n"
@@ -126,8 +127,7 @@ int parse_args(int argc, char **argv)
 	if (optind == argc-1) {
 		input_file = argv[optind];
 	} else {
-		fprintf(stderr, "Missing input file name.\n");
-		return -1;
+		input_file = NULL; // stdin
 	}
 
 	return 0;
@@ -159,19 +159,23 @@ int main(int argc, char **argv)
 		goto cleanup;
 	}
 
-	if (stat(input_file, &sb) == -1) {
-		fprintf(stderr, "Cannot stat file '%s'.\n", input_file);
-		goto cleanup;
-	}
+	if (input_file) {
+		if (stat(input_file, &sb) == -1) {
+			fprintf(stderr, "Cannot stat file '%s'.\n", input_file);
+			goto cleanup;
+		}
 
-	if (sb.st_size > 2*(0x10000-base_addr)) {
-		fprintf(stderr, "Warning: File is bigger than available address space (%li bytes > %i words). Output will be truncated.\n", sb.st_size, 0x10000-base_addr);
-	}
+		if (sb.st_size > 2*(0x10000-base_addr)) {
+			fprintf(stderr, "Warning: File is bigger than available address space (%li bytes > %i words). Output will be truncated.\n", sb.st_size, 0x10000-base_addr);
+		}
 
-	fi = fopen(input_file, "rb");
-	if (!fi) {
-		fprintf(stderr, "Cannot open input file '%s'.\n", input_file);
-		goto cleanup;
+		fi = fopen(input_file, "rb");
+		if (!fi) {
+			fprintf(stderr, "Cannot open input file '%s'.\n", input_file);
+			goto cleanup;
+		}
+	} else {
+		fi = stdin;
 	}
 
 	emd = emdas_create(iset, memget);
