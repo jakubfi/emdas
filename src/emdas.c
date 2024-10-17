@@ -136,7 +136,7 @@ int parse_args(int argc, char **argv)
 // -----------------------------------------------------------------------
 int memget(int nb, uint16_t addr, uint16_t *dest)
 {
-	if (addr < bin_size) {
+	if (addr < base_addr+bin_size) {
 		*dest = mem[addr];
 		return 1;
 	} else {
