@@ -242,38 +242,15 @@ static struct emdas_instr emdas_ilist[] = {
 // -----------------------------------------------------------------------
 static void emdas_iset_register_op(struct emdas_op *op_tab, uint16_t opcode, uint16_t mask, struct emdas_op *op)
 {
-	int i, pos;
-	int offsets[16];
-	int one_count = 0;
-	int max;
-	uint16_t result;
-
 	assert(op_tab);
 	assert(op);
 
-	// store 1's positions in mask, count 1's
-	for (i=0 ; i<16 ; i++) {
-		if (mask & (1<<i)) {
-			offsets[one_count] = i;
-			one_count++;
-		}
-	}
+	uint16_t result = 0;
 
-	max = (1 << one_count) - 1;
-
-	// iterate over all variants (as indicated by the mask)
-	for (i=0 ; i<=max ; i++) {
-		result = 0;
-
-		// shift 1's into positions
-		for (pos=one_count-1 ; pos>=0 ; pos--) {
-			result |= ((i >> pos) & 1) << offsets[pos];
-		}
-
+	do {
 		// register the op
 		int dopcode = opcode | result;
-		struct emdas_op *dop = op_tab + dopcode;
-
+		struct emdas_op *dop = &op_tab[dopcode];
 		dop->id = op->id;
 		dop->flags = op->flags;
 		dop->v = dopcode;
@@ -284,7 +261,9 @@ static void emdas_iset_register_op(struct emdas_op *op_tab, uint16_t opcode, uin
 			if (_D(dopcode)) dop->flags |= EMD_FL_MOD_D;
 			if (_B(dopcode)) dop->flags |= EMD_FL_MOD_B;
 		}
-	}
+		// Gosper's hack
+		result = (result - mask) & mask;
+	} while (result != 0);
 }
 
 // -----------------------------------------------------------------------
