@@ -12,19 +12,19 @@ jobs:
     runs-on: ${{matrix.os}}
     strategy:
       matrix:
-        os: [ ubuntu-24.04 ]
+        os: [ ubuntu-latest ]
         compiler:
-          - { compiler: GNU14, CC: gcc-14, CXX: g++-14, packages: gcc-14 g++-14 }
-          - { compiler: LLVM20, CC: clang-20, CXX: clang++-20, packages: clang-20 libomp-20-dev llvm-20-dev libc++-20-dev libc++abi1-20 lld-20 clang-tools-20 mlir-20-tools libmlir-20-dev }
+          - { compiler: GCC, CC: gcc, CXX: g++ }
+          - { compiler: CLANG, CC: clang, CXX: clang++ }
     env:
       BUILD_TYPE: Release
       CC: ${{matrix.compiler.CC}}
       CXX: ${{matrix.compiler.CXX}}
 
     steps:
-      - uses: actions/checkout@v2
-      - name: Install packages for ${{matrix.compiler.compiler}}
-        run: sudo apt-get -y install ${{matrix.compiler.packages}}
+      - uses: actions/checkout@v4
+      - name: Update repositories
+        run: sudo apt-get update
       - name: Build and install emawp
         run: git clone https://github.com/jakubfi/emawp && cd emawp && mkdir build && cd build && cmake .. && make && sudo make install && sudo ldconfig
       - name: Build and install emas
