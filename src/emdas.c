@@ -36,6 +36,7 @@
 
 char *input_file;
 char *output_file;
+char *sym_file;
 
 int iset = EMD_ISET_MERA400;
 int features = EMD_FEAT_DEFAULT;
@@ -61,8 +62,10 @@ void usage()
 		"   -o <output> : specify output file (stdout otherwise)\n"
 		"   -c <cpu>    : set CPU type: mera400, mx16 (default is mera400)\n"
 		"   -a <addr>   : set base address\n"
+		"   -s <file>   : load symbol table (lines: '<addr> <name>')\n"
 		"   -u          : use uppercase mnemonics\n"
 		"   -na         : do not print adresses\n"
+		"   -nb         : do not break labels onto their own line\n"
 		"   -nc         : do not print alternatives in comments\n"
 		"   -nl         : do not assign labels\n"
 		"   -v          : print version and exit\n"
@@ -76,7 +79,7 @@ int parse_args(int argc, char **argv)
 	char *oa;
 	int option;
 
-	while ((option = getopt(argc, argv,"c:uo:n:a:vh")) != -1) {
+	while ((option = getopt(argc, argv,"c:uo:n:a:s:vh")) != -1) {
 		switch (option) {
 			case 'c':
 				if (!strcmp(optarg, "mera400")) {
@@ -96,6 +99,7 @@ int parse_args(int argc, char **argv)
 				while (oa && *oa){
 					switch (*oa) {
 						case 'a': features &= ~EMD_FEAT_ADDR; break;
+						case 'b': features &= ~EMD_FEAT_LABEL_BREAK; break;
 						case 'c': features &= ~EMD_FEAT_ALTS; break;
 						case 'l': use_labels = 0; break;
 						default: 
@@ -118,6 +122,9 @@ int parse_args(int argc, char **argv)
 				break;
 			case 'a':
 				sscanf(optarg, "%i", &base_addr);
+				break;
+			case 's':
+				sym_file = strdup(optarg);
 				break;
 			default:
 				return -1;
@@ -142,6 +149,45 @@ int memget(int nb, uint16_t addr, uint16_t *dest)
 	} else {
 		return 0;
 	}
+}
+
+// -----------------------------------------------------------------------
+int load_symbols(struct emdas *emd, const char *path)
+{
+	FILE *f = fopen(path, "r");
+	if (!f) {
+		fprintf(stderr, "Cannot open symbol file '%s'.\n", path);
+		return -1;
+	}
+
+	char line[512];
+	int lineno = 0;
+	while (fgets(line, sizeof(line), f)) {
+		lineno++;
+		char *p = line;
+		while (*p == ' ' || *p == '\t') p++;
+		if (*p == '\0' || *p == '\n' || *p == '#' || *p == ';') continue;
+
+		unsigned int addr;
+		char name[256];
+		if (sscanf(p, "%i %255s", &addr, name) != 2) {
+			fprintf(stderr, "Symbol file '%s' line %d: cannot parse '%s'\n", path, lineno, p);
+			continue;
+		}
+		if (addr > 0xffff) {
+			fprintf(stderr, "Symbol file '%s' line %d: address 0x%x out of range\n", path, lineno, addr);
+			continue;
+		}
+		int res = emdas_set_symbol(emd, 0, (uint16_t)addr, name);
+		if (res != EMD_E_OK) {
+			fprintf(stderr, "Cannot set symbol '%s' at 0x%04x: %s\n", name, addr, emdas_get_error(res));
+			fclose(f);
+			return -1;
+		}
+	}
+
+	fclose(f);
+	return 0;
 }
 
 // -----------------------------------------------------------------------
@@ -237,6 +283,12 @@ int main(int argc, char **argv)
 		}
 	}
 
+	if (sym_file) {
+		if (load_symbols(emd, sym_file) < 0) {
+			goto cleanup;
+		}
+	}
+
 	int ic = base_addr;
 	int words;
 	while (ic < base_addr+bin_size) {
@@ -257,6 +309,7 @@ cleanup:
 	free(mem);
 	emdas_destroy(emd);
 	free(output_file);
+	free(sym_file);
 	return ret;
 }
 

@@ -17,6 +17,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <assert.h>
 
 #include <emawp.h>
@@ -219,7 +220,11 @@ static void emdas_print_arg(struct emdas *emd, struct emdas_op *op, uint16_t *va
 	// .word "argument"
 	if (as_data || (op->id == EMD_OP_NONE)) {
 		if (ref) {
-			emdas_buf_app(emd->dbuf, "%s_%x", emdas_lab_types[ref->type], ref->addr);
+			if (ref->name) {
+				emdas_buf_app(emd->dbuf, "%s", ref->name);
+			} else {
+				emdas_buf_app(emd->dbuf, "%s_%x", emdas_lab_types[ref->type], ref->addr);
+			}
 		} else {
 			emdas_buf_app(emd->dbuf, "0x%04x", op->v);
 		}
@@ -245,7 +250,11 @@ static void emdas_print_arg(struct emdas *emd, struct emdas_op *op, uint16_t *va
 	// short 7-bit argument
 	} else if (op->flags & EMD_FL_ARG_SHORT7) {
 		if (ref) {
-			emdas_buf_app(emd->dbuf, "%s_%x", emdas_lab_types[ref->type], ref->addr);
+			if (ref->name) {
+				emdas_buf_app(emd->dbuf, "%s", ref->name);
+			} else {
+				emdas_buf_app(emd->dbuf, "%s_%x", emdas_lab_types[ref->type], ref->addr);
+			}
 		} else {
 			// unsigned (octal) for HLT
 			if (op->id == EMD_OP_HLT) {
@@ -279,7 +288,11 @@ static void emdas_print_arg(struct emdas *emd, struct emdas_op *op, uint16_t *va
 				emdas_buf_app(emd->dbuf, "%s", "r0");
 			// named argument
 			} else if (ref) {
-				emdas_buf_app(emd->dbuf, "%s_%x", emdas_lab_types[ref->type], ref->addr);
+				if (ref->name) {
+					emdas_buf_app(emd->dbuf, "%s", ref->name);
+				} else {
+					emdas_buf_app(emd->dbuf, "%s_%x", emdas_lab_types[ref->type], ref->addr);
+				}
 			// arg refers to CPU flags
 			} else if ((op->flags & EMD_FL_ARG_FLAGS) && (_A(op->v) == 0) && !(op->flags & EMD_FL_MOD_D)) {
 				emdas_print_flags(emd->dbuf, *varg);
@@ -350,18 +363,13 @@ static void emdas_print_comment(struct emdas *emd, struct emdas_op *op, uint16_t
 }
 
 // -----------------------------------------------------------------------
-static int emdas_print_label(struct emdas *emd, unsigned nb, uint16_t addr)
+static void emdas_print_label_name(struct emdas *emd, struct emdas_dh_elem *lab)
 {
-	int lab_type = EMD_LAB_NONE;
-
-	struct emdas_dh_elem *lab = emdas_dh_get(emd->cellinfo[nb], addr);
-	if (lab && (lab->type != EMD_LAB_NONE)) {
-		emdas_buf_tab(emd->dbuf, emd->tabs.label);
+	if (lab->name) {
+		emdas_buf_app(emd->dbuf, "%s:", lab->name);
+	} else {
 		emdas_buf_app(emd->dbuf, "%s_%x:", emdas_lab_types[lab->type], lab->addr);
-		lab_type = lab->type;
 	}
-
-	return lab_type;
 }
 
 // -----------------------------------------------------------------------
@@ -408,15 +416,33 @@ static int emdas_print(struct emdas *emd, unsigned nb, uint16_t addr, int as_dat
 	int has_varg = 0;
 	struct emdas_dh_elem *ref = NULL;
 	int split_arg = 0;
-	int lab_type;
+	int lab_type = EMD_LAB_NONE;
 
-	// 1. print address
+	struct emdas_dh_elem *lab = emdas_dh_get(emd->cellinfo[nb], addr);
+	if (lab && (lab->name || (lab->type != EMD_LAB_NONE))) {
+		lab_type = lab->type;
+	} else {
+		lab = NULL;
+	}
+
+	// 1. print label on its own line if break-out mode is on
+	if (lab && (emd->features & EMD_FEAT_LABEL_BREAK)) {
+		emdas_buf_tab(emd->dbuf, emd->tabs.label);
+		emdas_print_label_name(emd, lab);
+		emdas_buf_nl(emd->dbuf);
+		lab = NULL;
+	}
+
+	// 2. print address
 	if (emd->features & EMD_FEAT_ADDR) {
 		emdas_buf_app(emd->dbuf, "0x%04x:", addr);
 	}
 
-	// 2. print label
-	lab_type = emdas_print_label(emd, nb, addr);
+	// 3. print label inline (only if not broken out above)
+	if (lab) {
+		emdas_buf_tab(emd->dbuf, emd->tabs.label);
+		emdas_print_label_name(emd, lab);
+	}
 
 	emdas_buf_tab(emd->dbuf, emd->tabs.mnemo);
 
@@ -522,6 +548,43 @@ int emdas_dasm(struct emdas *emd, unsigned nb, uint16_t addr)
 	emdas_buf_nl(emd->dbuf);
 
 	return len;
+}
+
+// -----------------------------------------------------------------------
+int emdas_set_symbol(struct emdas *emd, unsigned nb, uint16_t addr, const char *name)
+{
+	assert(emd);
+
+	if (nb > 15) {
+		return EMD_E_MEM_BLOCK;
+	}
+
+	if (!emd->cellinfo[nb]) {
+		emd->cellinfo[nb] = emdas_dh_create();
+		if (!emd->cellinfo[nb]) {
+			return emdas_error;
+		}
+	}
+
+	struct emdas_dh_elem *elem = emdas_dh_get(emd->cellinfo[nb], addr);
+	if (!elem) {
+		elem = emdas_dh_add(emd->cellinfo[nb], addr, EMD_LAB_NONE, NULL);
+		if (!elem) {
+			return emdas_error;
+		}
+	}
+
+	char *dup = NULL;
+	if (name) {
+		dup = strdup(name);
+		if (!dup) {
+			return EMD_E_ALLOC;
+		}
+	}
+	free(elem->name);
+	elem->name = dup;
+
+	return EMD_E_OK;
 }
 
 // -----------------------------------------------------------------------

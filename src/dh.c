@@ -90,6 +90,7 @@ struct emdas_dh_elem * emdas_dh_add(struct emdas_dh_table *dh, uint16_t addr, sh
 	}
 	new_elem->addr = addr;
 	new_elem->type = type;
+	new_elem->name = NULL;
 	new_elem->ref = ref;
 	new_elem->next = dh->slots[hash];
 	dh->slots[hash] = new_elem;
@@ -111,6 +112,7 @@ int emdas_dh_delete(struct emdas_dh_table *dh, uint16_t addr)
 			} else {
 				dh->slots[hash] = elem->next;
 			}
+			free(elem->name);
 			free(elem);
             return 0;
         }
@@ -133,6 +135,7 @@ void emdas_dh_destroy(struct emdas_dh_table *dh)
 		elem = dh->slots[i];
 		while (elem) {
 			tmp = elem->next;
+			free(elem->name);
 			free(elem);
 			elem = tmp;
 		}

@@ -39,8 +39,9 @@ enum emdas_features {
 	EMD_FEAT_UMNEMO		= 1 << 1,	// use uppercase mnemonics
 	EMD_FEAT_ALTS		= 1 << 2,	// print alternatives in comments
 	EMD_FEAT_IOARGS		= 1 << 3,	// print IN/OU return addresses as instruction arguments
-	EMD_FEAT_ALL		= EMD_FEAT_ADDR | EMD_FEAT_UMNEMO | EMD_FEAT_ALTS | EMD_FEAT_IOARGS,
-	EMD_FEAT_DEFAULT	= EMD_FEAT_ADDR | EMD_FEAT_ALTS | EMD_FEAT_IOARGS,
+	EMD_FEAT_LABEL_BREAK	= 1 << 4,	// emit labels on their own line (no address)
+	EMD_FEAT_ALL		= EMD_FEAT_ADDR | EMD_FEAT_UMNEMO | EMD_FEAT_ALTS | EMD_FEAT_IOARGS | EMD_FEAT_LABEL_BREAK,
+	EMD_FEAT_DEFAULT	= EMD_FEAT_ADDR | EMD_FEAT_ALTS | EMD_FEAT_IOARGS | EMD_FEAT_LABEL_BREAK,
 };
 
 // errors
@@ -76,6 +77,7 @@ int emdas_get_linecnt(struct emdas *emd);
 
 int emdas_dasm(struct emdas *emd, unsigned nb, uint16_t addr);
 int emdas_analyze(struct emdas *emd, unsigned nb, uint16_t addr, unsigned size);
+int emdas_set_symbol(struct emdas *emd, unsigned nb, uint16_t addr, const char *name);
 
 char * emdas_get_error(int e);
 

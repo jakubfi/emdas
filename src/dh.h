@@ -42,6 +42,7 @@ extern char *emdas_lab_types[];
 struct emdas_dh_elem {
 	uint16_t addr;
 	short type;
+	char *name;
 	struct emdas_dh_elem *ref;
 	struct emdas_dh_elem *next;
 };
