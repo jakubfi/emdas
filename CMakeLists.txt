@@ -7,7 +7,6 @@ project(emdas
 include(GNUInstallDirs)
 include(cmake/appversion.cmake)
 
-include_directories(${CMAKE_SOURCE_DIR}/include)
 add_compile_options(-Wall)
 
 # ---- Target: emdas-lib -------------------------------------------------
@@ -36,9 +35,16 @@ if(WIN32)
 target_link_libraries(emdas-lib ws2_32)
 endif(WIN32)
 
+# Export header location so find_package(emdas) consumers get the include path.
+target_include_directories(emdas-lib PUBLIC
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+	$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+)
+
 set_target_properties(emdas-lib PROPERTIES
 	C_STANDARD 99
 	OUTPUT_NAME "emdas"
+	EXPORT_NAME "emdas"
 	SOVERSION ${APP_VERSION_MAJOR}.${APP_VERSION_MINOR}
 	PUBLIC_HEADER "${EMDAS_PUBLIC_HEADERS}"
 )
