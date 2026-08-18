@@ -211,7 +211,7 @@ static int emdas_print_flags(struct emdas_buf *buf, uint16_t flags)
 
 	flagset[fpos] = '\0';
 
-	return emdas_buf_app(buf, "%s", flagset);
+	return emdas_buf_s(buf, flagset);
 }
 
 // -----------------------------------------------------------------------
@@ -356,7 +356,7 @@ static void emdas_print_comment(struct emdas *emd, struct emdas_op *op, uint16_t
 				}
 			} else {
 				// cannot read memory
-				emdas_buf_app(emd->dbuf, ", %s", "; ???");
+				emdas_buf_s(emd->dbuf, ", ; ???");
 			}
 		}
 	}
