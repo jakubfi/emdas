@@ -129,10 +129,15 @@ int emdas_buf_app(struct emdas_buf *buf, const char *fmt, ...)
 	assert(buf);
 
 	va_list ap;
+	int avail = buf->len - buf->pos;
 
 	va_start(ap, fmt);
-	int clen = vsnprintf(buf->buf + buf->pos, buf->len - buf->pos, fmt, ap);
+	int clen = vsnprintf(buf->buf + buf->pos, avail + 1, fmt, ap);
 	va_end(ap);
+
+	// vsnprintf() returns the length it would have written
+	if (clen > avail) clen = avail;
+	else if (clen < 0) clen = 0;
 
 	buf->lpos += clen;
 	buf->pos += clen;
