@@ -28,6 +28,7 @@ void emdas_buf_set_nl(struct emdas_buf *buf, char nl);
 
 int emdas_buf_nl(struct emdas_buf *buf);
 int emdas_buf_app(struct emdas_buf *buf, const char *fmt, ...);
+int emdas_buf_s(struct emdas_buf *buf, const char *s);
 int emdas_buf_c(struct emdas_buf *buf, char c);
 int emdas_buf_tab(struct emdas_buf *buf, unsigned tab);
 int emdas_buf_toupper(struct emdas_buf *buf, unsigned back);

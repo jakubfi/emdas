@@ -221,7 +221,7 @@ static void emdas_print_arg(struct emdas *emd, struct emdas_op *op, uint16_t *va
 	if (as_data || (op->id == EMD_OP_NONE)) {
 		if (ref) {
 			if (ref->name) {
-				emdas_buf_app(emd->dbuf, "%s", ref->name);
+				emdas_buf_s(emd->dbuf, ref->name);
 			} else {
 				emdas_buf_app(emd->dbuf, "%s_%x", emdas_lab_types[ref->type], ref->addr);
 			}
@@ -251,7 +251,7 @@ static void emdas_print_arg(struct emdas *emd, struct emdas_op *op, uint16_t *va
 	} else if (op->flags & EMD_FL_ARG_SHORT7) {
 		if (ref) {
 			if (ref->name) {
-				emdas_buf_app(emd->dbuf, "%s", ref->name);
+				emdas_buf_s(emd->dbuf, ref->name);
 			} else {
 				emdas_buf_app(emd->dbuf, "%s_%x", emdas_lab_types[ref->type], ref->addr);
 			}
@@ -285,11 +285,11 @@ static void emdas_print_arg(struct emdas *emd, struct emdas_op *op, uint16_t *va
 		if (op->flags & EMD_FL_2WORD) {
 			// no memory or split arg
 			if (!varg) {
-				emdas_buf_app(emd->dbuf, "%s", "r0");
+				emdas_buf_s(emd->dbuf, "r0");
 			// named argument
 			} else if (ref) {
 				if (ref->name) {
-					emdas_buf_app(emd->dbuf, "%s", ref->name);
+					emdas_buf_s(emd->dbuf, ref->name);
 				} else {
 					emdas_buf_app(emd->dbuf, "%s_%x", emdas_lab_types[ref->type], ref->addr);
 				}
@@ -323,7 +323,7 @@ static void emdas_print_op(struct emdas *emd, struct emdas_op *op, int as_data)
 {
 	int op_id = as_data ? EMD_OP_NONE : op->id;
 
-	int clen = emdas_buf_app(emd->dbuf, "%s", emdas_iset_get_mneno(op_id));
+	int clen = emdas_buf_s(emd->dbuf, emdas_iset_get_mneno(op_id));
 	if (emd->features & EMD_FEAT_UMNEMO) {
 		emdas_buf_toupper(emd->dbuf, clen);
 	}
@@ -334,7 +334,7 @@ static void emdas_print_comment(struct emdas *emd, struct emdas_op *op, uint16_t
 {
 	// cell was printed as data, so alt is code
 	if (as_data) {
-		emdas_buf_app(emd->dbuf, "%s", "; ");
+		emdas_buf_s(emd->dbuf, "; ");
 		emdas_print_op(emd, op, 0);
 		emdas_buf_c(emd->dbuf, ' ');
 		emdas_print_arg(emd, op, NULL, NULL, 0);
@@ -347,7 +347,7 @@ static void emdas_print_comment(struct emdas *emd, struct emdas_op *op, uint16_t
 			if (varg) {
 				struct emdas_op *aop = emd->ops + *varg;
 				if (aop->id != EMD_OP_NONE) {
-					emdas_buf_app(emd->dbuf, "%s", "  ");
+					emdas_buf_s(emd->dbuf, "  ");
 					emdas_print_op(emd, aop, 0);
 					emdas_buf_c(emd->dbuf, ' ');
 					emdas_print_arg(emd, aop, NULL, NULL, 0);
@@ -451,7 +451,7 @@ static int emdas_print(struct emdas *emd, unsigned nb, uint16_t addr, int as_dat
 		op = emd->ops + vop;
 	} else {
 		// no memory
-		emdas_buf_app(emd->dbuf, "%s", "; ???");
+		emdas_buf_s(emd->dbuf, "; ???");
 		return len;
 	}
 

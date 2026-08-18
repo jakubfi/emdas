@@ -142,6 +142,25 @@ int emdas_buf_app(struct emdas_buf *buf, const char *fmt, ...)
 }
 
 // -----------------------------------------------------------------------
+int emdas_buf_s(struct emdas_buf *buf, const char *s)
+{
+	assert(buf);
+
+	int avail = buf->len - buf->pos;
+	int clen = 0;
+	while (s[clen] && clen < avail) {
+		buf->buf[buf->pos + clen] = s[clen];
+		clen++;
+	}
+
+	buf->pos += clen;
+	buf->lpos += clen;
+	buf->buf[buf->pos] = '\0';
+
+	return clen;
+}
+
+// -----------------------------------------------------------------------
 int emdas_buf_tab(struct emdas_buf *buf, unsigned tab)
 {
 	assert(buf);
